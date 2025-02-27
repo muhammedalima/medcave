@@ -3,10 +3,10 @@ import 'package:fluttericon/font_awesome_icons.dart';
 import 'package:fluttericon/octicons_icons.dart';
 import 'package:google_nav_bar/google_nav_bar.dart';
 import 'package:medcave/config/colors/appcolor.dart';
-import 'package:medcave/features/ambulance_tracking/presentation/pages/driver/ambulance_driver_page.dart';
-import 'package:medcave/features/home_screen/presentation/pages/home_page.dart';
-import 'package:medcave/features/hospital_features/presentation/pages/hospital_page.dart';
-import 'package:medcave/features/personal_profile/presentation/pages/profile_page.dart';
+import 'package:medcave/Users/Mobilescreens/features/ambulance_tracking/presentation/pages/driver/ambulance_driver_page.dart';
+import 'package:medcave/Users/Mobilescreens/features/home_screen/presentation/pages/home_page.dart';
+import 'package:medcave/Users/Mobilescreens/features/hospital_features/presentation/pages/hospital_page.dart';
+import 'package:medcave/Users/Mobilescreens/features/personal_profile/presentation/pages/profile_page.dart';
 
 class CustomNavigationBar extends StatefulWidget {
   const CustomNavigationBar({super.key});

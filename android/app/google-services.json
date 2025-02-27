@@ -1,0 +1,29 @@
+{
+  "project_info": {
+    "project_number": "852388394037",
+    "project_id": "medcave-4be69",
+    "storage_bucket": "medcave-4be69.firebasestorage.app"
+  },
+  "client": [
+    {
+      "client_info": {
+        "mobilesdk_app_id": "1:852388394037:android:ecf713b190512c698aed7c",
+        "android_client_info": {
+          "package_name": "com.example.medcave"
+        }
+      },
+      "oauth_client": [],
+      "api_key": [
+        {
+          "current_key": "AIzaSyAIDKH8CMhgt47pMY3tKYznw-gv2ELmL-w"
+        }
+      ],
+      "services": {
+        "appinvite_service": {
+          "other_platform_oauth_client": []
+        }
+      }
+    }
+  ],
+  "configuration_version": "1"
+}

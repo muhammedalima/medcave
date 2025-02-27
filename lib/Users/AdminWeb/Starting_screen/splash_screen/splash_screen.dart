@@ -4,16 +4,16 @@ import 'package:flutter/material.dart';
 import 'package:flutter_animate/flutter_animate.dart';
 import 'package:flutter_svg/svg.dart';
 import 'package:medcave/config/colors/appcolor.dart';
-import 'package:medcave/main/bottom_navigation_bar/bottom_navigation_bar.dart';
+import 'package:medcave/Users/AdminWeb/Starting_screen/auth/adminauthwrapper.dart';
 
-class SplashScreen extends StatefulWidget {
-  const SplashScreen({super.key});
+class AdminSplashScreen extends StatefulWidget {
+  const AdminSplashScreen({super.key});
 
   @override
-  State<SplashScreen> createState() => _SplashScreenState();
+  State<AdminSplashScreen> createState() => _AdminSplashScreenState();
 }
 
-class _SplashScreenState extends State<SplashScreen> {
+class _AdminSplashScreenState extends State<AdminSplashScreen> {
   @override
   void initState() {
     super.initState();
@@ -22,7 +22,7 @@ class _SplashScreenState extends State<SplashScreen> {
         () => Navigator.pushReplacement(
             context,
             MaterialPageRoute(
-                builder: (context) => const CustomNavigationBar()//SignUpPage() ,
+                builder: (context) => const Adminauthwrapper()//SignUpPage() ,
                 )));
   }
 

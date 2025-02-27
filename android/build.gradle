@@ -3,8 +3,11 @@ allprojects {
         google()
         mavenCentral()
     }
-}
+    }
 
+ext {
+    kotlin_version = '1.9.10' // Replace with the latest version
+}
 rootProject.buildDir = "../build"
 subprojects {
     project.buildDir = "${rootProject.buildDir}/${project.name}"
