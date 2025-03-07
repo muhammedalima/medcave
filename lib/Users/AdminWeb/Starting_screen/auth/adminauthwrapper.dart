@@ -12,8 +12,7 @@ class Adminauthwrapper extends StatefulWidget {
 
 class _AuthWrapperState extends State<Adminauthwrapper> {
   late final Stream<User?> _authStream;
-  bool? _hasSeenOnboarding; // Initialize as null for clarity
-
+  
   @override
   void initState() {
     super.initState();
