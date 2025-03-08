@@ -1,3 +1,5 @@
+import 'dart:math';
+
 import 'package:flutter/material.dart';
 import 'package:medcave/Users/Mobilescreens/Starting_Screen/OnBoarding/widget/formlabel.dart';
 import 'package:medcave/Users/Mobilescreens/Starting_Screen/OnBoarding/widget/onboardinginput.dart';
@@ -23,6 +25,7 @@ class _OnboardingState extends State<Onboarding> {
   OnboardingData _data = OnboardingData();
   bool _isSaving = false;
   bool _keyboardVisible = false;
+  String selectedGender = ''; // For gender selection
 
   Future<void> _saveOnboardingData() async {
     if (_isSaving) return;
@@ -112,6 +115,8 @@ class _OnboardingState extends State<Onboarding> {
                     vehicleRegistrationNumber: _data.vehicleRegistrationNumber,
                     ambulanceType: _data.ambulanceType,
                     equipment: _data.equipment,
+                    age: _data.age,
+                    gender: _data.gender,
                   );
                 });
               },
@@ -135,6 +140,8 @@ class _OnboardingState extends State<Onboarding> {
                             _data.vehicleRegistrationNumber,
                         ambulanceType: _data.ambulanceType,
                         equipment: _data.equipment,
+                        age: _data.age,
+                        gender: _data.gender,
                       );
                     });
                   },
@@ -171,6 +178,8 @@ class _OnboardingState extends State<Onboarding> {
                             _data.vehicleRegistrationNumber,
                         ambulanceType: _data.ambulanceType,
                         equipment: _data.equipment,
+                        age: _data.age,
+                        gender: _data.gender,
                       );
                     });
                   },
@@ -201,7 +210,180 @@ class _OnboardingState extends State<Onboarding> {
     );
   }
 
-  Widget _secondForm() {
+  // New form for age and gender
+  Widget _ageGenderForm() {
+    return Padding(
+      padding: const EdgeInsets.all(20.0),
+      child: Column(
+        crossAxisAlignment: CrossAxisAlignment.start,
+        mainAxisSize: MainAxisSize.min,
+        children: [
+          const FormLabelText(text: "What's your age?"),
+          const SizedBox(height: 8),
+          InputFieldContainer(
+            child: TextFormField(
+              initialValue: _data.age != null ? _data.age.toString() : '',
+              keyboardType: TextInputType.number,
+              decoration: const InputDecoration(
+                border: InputBorder.none,
+                hintText: 'Enter your age',
+                hintStyle: TextStyle(
+                  color: Colors.black38,
+                ),
+              ),
+              validator: (value) {
+                if (value == null || value.isEmpty) {
+                  return 'Please enter your age';
+                }
+                final age = int.tryParse(value);
+                if (age == null || age < 18 || age > 100) {
+                  return 'Please enter a valid age between 18 and 100';
+                }
+                return null;
+              },
+              onChanged: (value) {
+                setState(() {
+                  _data = OnboardingData(
+                    name: _data.name,
+                    phoneNumber: _data.phoneNumber,
+                    driverLicense: _data.driverLicense,
+                    isAmbulanceDriver: _data.isAmbulanceDriver,
+                    vehicleRegistrationNumber: _data.vehicleRegistrationNumber,
+                    ambulanceType: _data.ambulanceType,
+                    equipment: _data.equipment,
+                    age: int.tryParse(value),
+                    gender: _data.gender,
+                  );
+                });
+              },
+            ),
+          ),
+          const SizedBox(height: 24),
+          const FormLabelText(text: 'Select your gender'),
+          const SizedBox(height: 16),
+          Row(
+            children: [
+              Expanded(
+                child: ElevatedButton(
+                  onPressed: () {
+                    setState(() {
+                      selectedGender = 'Male';
+                      _data = OnboardingData(
+                        name: _data.name,
+                        phoneNumber: _data.phoneNumber,
+                        driverLicense: _data.driverLicense,
+                        isAmbulanceDriver: _data.isAmbulanceDriver,
+                        vehicleRegistrationNumber: _data.vehicleRegistrationNumber,
+                        ambulanceType: _data.ambulanceType,
+                        equipment: _data.equipment,
+                        age: _data.age,
+                        gender: 'Male',
+                      );
+                    });
+                  },
+                  style: ElevatedButton.styleFrom(
+                    backgroundColor: selectedGender == 'Male'
+                        ? const Color(0xFFFFD54F)
+                        : const Color(0xFFF3F4F6),
+                    foregroundColor: Colors.black,
+                    padding: const EdgeInsets.symmetric(vertical: 16),
+                    shape: RoundedRectangleBorder(
+                      borderRadius: BorderRadius.circular(12),
+                    ),
+                  ),
+                  child: const Text(
+                    'Male',
+                    style: TextStyle(
+                      fontSize: 16,
+                      fontWeight: FontWeight.w600,
+                    ),
+                  ),
+                ),
+              ),
+              const SizedBox(width: 16),
+              Expanded(
+                child: ElevatedButton(
+                  onPressed: () {
+                    setState(() {
+                      selectedGender = 'Female';
+                      _data = OnboardingData(
+                        name: _data.name,
+                        phoneNumber: _data.phoneNumber,
+                        driverLicense: _data.driverLicense,
+                        isAmbulanceDriver: _data.isAmbulanceDriver,
+                        vehicleRegistrationNumber: _data.vehicleRegistrationNumber,
+                        ambulanceType: _data.ambulanceType,
+                        equipment: _data.equipment,
+                        age: _data.age,
+                        gender: 'Female',
+                      );
+                    });
+                  },
+                  style: ElevatedButton.styleFrom(
+                    backgroundColor: selectedGender == 'Female'
+                        ? const Color(0xFFFFD54F)
+                        : const Color(0xFFF3F4F6),
+                    foregroundColor: Colors.black,
+                    padding: const EdgeInsets.symmetric(vertical: 16),
+                    shape: RoundedRectangleBorder(
+                      borderRadius: BorderRadius.circular(12),
+                    ),
+                  ),
+                  child: const Text(
+                    'Female',
+                    style: TextStyle(
+                      fontSize: 16,
+                      fontWeight: FontWeight.w600,
+                    ),
+                  ),
+                ),
+              ),
+            ],
+          ),
+          const SizedBox(height: 16),
+          Expanded(
+            child: ElevatedButton(
+              onPressed: () {
+                setState(() {
+                  selectedGender = 'Other';
+                  _data = OnboardingData(
+                    name: _data.name,
+                    phoneNumber: _data.phoneNumber,
+                    driverLicense: _data.driverLicense,
+                    isAmbulanceDriver: _data.isAmbulanceDriver,
+                    vehicleRegistrationNumber: _data.vehicleRegistrationNumber,
+                    ambulanceType: _data.ambulanceType,
+                    equipment: _data.equipment,
+                    age: _data.age,
+                    gender: 'Other',
+                  );
+                });
+              },
+              style: ElevatedButton.styleFrom(
+                backgroundColor: selectedGender == 'Other'
+                    ? const Color(0xFFFFD54F)
+                    : const Color(0xFFF3F4F6),
+                foregroundColor: Colors.black,
+                padding: const EdgeInsets.symmetric(vertical: 16),
+                shape: RoundedRectangleBorder(
+                  borderRadius: BorderRadius.circular(12),
+                ),
+              ),
+              child: const Text(
+                'Other',
+                style: TextStyle(
+                  fontSize: 16,
+                  fontWeight: FontWeight.w600,
+                ),
+              ),
+            ),
+          ),
+        ],
+      ),
+    );
+  }
+
+  Widget _phoneNumberForm() {
     return Padding(
       padding: const EdgeInsets.all(20.0),
       child: Column(
@@ -241,6 +423,8 @@ class _OnboardingState extends State<Onboarding> {
                     vehicleRegistrationNumber: _data.vehicleRegistrationNumber,
                     ambulanceType: _data.ambulanceType,
                     equipment: _data.equipment,
+                    age: _data.age,
+                    gender: _data.gender,
                   );
                 });
               },
@@ -251,7 +435,7 @@ class _OnboardingState extends State<Onboarding> {
     );
   }
 
-  Widget _thirdForm() {
+  Widget _driverLicenseForm() {
     return Padding(
       padding: const EdgeInsets.all(20.0),
       child: Column(
@@ -290,6 +474,8 @@ class _OnboardingState extends State<Onboarding> {
                     vehicleRegistrationNumber: _data.vehicleRegistrationNumber,
                     ambulanceType: _data.ambulanceType,
                     equipment: _data.equipment,
+                    age: _data.age,
+                    gender: _data.gender,
                   );
                 });
               },
@@ -300,7 +486,7 @@ class _OnboardingState extends State<Onboarding> {
     );
   }
 
-  Widget _fourthForm() {
+  Widget _vehicleDetailsForm() {
     return Padding(
       padding: const EdgeInsets.all(20.0),
       child: SingleChildScrollView(
@@ -350,6 +536,8 @@ class _OnboardingState extends State<Onboarding> {
                       vehicleRegistrationNumber: value.toUpperCase(),
                       ambulanceType: _data.ambulanceType,
                       equipment: _data.equipment,
+                      age: _data.age,
+                      gender: _data.gender,
                     );
                   });
                 },
@@ -442,8 +630,8 @@ class _OnboardingState extends State<Onboarding> {
 
   void _handleNext() async {
     if (_formKey.currentState!.validate()) {
-      // If user is not an ambulance driver and we're on page 1 (phone number)
-      if (!_data.isAmbulanceDriver && _currentPage == 1) {
+      // If user is not an ambulance driver and we're on page 2 (phone number)
+      if (!_data.isAmbulanceDriver && _currentPage == 2) {
         // Save the data and proceed to home
         await _saveOnboardingData();
         if (mounted) {
@@ -457,8 +645,8 @@ class _OnboardingState extends State<Onboarding> {
       }
 
       // For ambulance drivers, or for the first page for all users
-      if (_currentPage == 3 ||
-          (_currentPage == 1 && !_data.isAmbulanceDriver)) {
+      if (_currentPage == 4 ||
+          (_currentPage == 2 && !_data.isAmbulanceDriver)) {
         // On the last page, save all data
         await _saveOnboardingData();
         // Navigate to home screen or next screen
@@ -479,7 +667,7 @@ class _OnboardingState extends State<Onboarding> {
   }
 
   // Get the total pages based on whether user is ambulance driver or not
-  int get _totalPages => _data.isAmbulanceDriver ? 4 : 2;
+  int get _totalPages => _data.isAmbulanceDriver ? 5 : 3;
 
   @override
   Widget build(BuildContext context) {
@@ -527,7 +715,7 @@ class _OnboardingState extends State<Onboarding> {
                     : const Padding(
                         padding: EdgeInsets.symmetric(horizontal: 8.0),
                         child: Text(
-                          'Welcome to MedCave Ambulance Service!',
+                          'Welcome to MedCave',
                           textAlign: TextAlign.center,
                           style: TextStyle(
                             fontSize: 24,
@@ -543,7 +731,7 @@ class _OnboardingState extends State<Onboarding> {
                 child: keyboardIsVisible
                     ? const SizedBox.shrink()
                     : Image.asset(
-                        'assets/ambulance.png',
+                        'assets/ambulanceImage.gif',
                         height: 300,
                         fit: BoxFit.contain,
                       ),
@@ -575,15 +763,16 @@ class _OnboardingState extends State<Onboarding> {
                     },
                     children: [
                       _firstForm(),
-                      _secondForm(),
-                      if (_data.isAmbulanceDriver) _thirdForm(),
-                      if (_data.isAmbulanceDriver) _fourthForm(),
+                      _ageGenderForm(), // New form for age and gender
+                      _phoneNumberForm(),
+                      if (_data.isAmbulanceDriver) _driverLicenseForm(),
+                      if (_data.isAmbulanceDriver) _vehicleDetailsForm(),
                     ],
                   ),
                 ),
               ),
               // Extra space at the bottom for the button sheet to sit on
-              SizedBox(height: keyboardIsVisible ? 0 : 80),
+              SizedBox(height: keyboardIsVisible ? 0 : 0),
             ],
           ),
         ),
@@ -591,7 +780,7 @@ class _OnboardingState extends State<Onboarding> {
       // Position the bottom sheet above the keyboard
       bottomSheet: Padding(
         // Add padding to avoid keyboard
-        padding: EdgeInsets.only(bottom: keyboardHeight),
+        padding: EdgeInsets.only(bottom: 0),
         child: Container(
           color: Colors.transparent,
           padding: const EdgeInsets.all(25),
@@ -600,7 +789,7 @@ class _OnboardingState extends State<Onboarding> {
             children: [
               if (_currentPage > 0)
                 OnboardingArrowIcon(
-                  rotateAngle: -2.4,
+                  rotateAngle: 180 * pi/180,
                   onclick: () {
                     _pageController.previousPage(
                       duration: const Duration(milliseconds: 300),
@@ -612,7 +801,7 @@ class _OnboardingState extends State<Onboarding> {
                 const SizedBox.shrink(),
               if (_currentPage < _totalPages - 1)
                 OnboardingArrowIcon(
-                  rotateAngle: 0.8,
+                  rotateAngle: 0,
                   onclick: _handleNext,
                 )
               else

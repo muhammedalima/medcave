@@ -1,5 +1,6 @@
 import 'package:firebase_auth/firebase_auth.dart';
 import 'package:flutter/material.dart';
+import 'package:medcave/Users/Mobilescreens/Starting_Screen/auth/authwrapper.dart';
 import 'package:medcave/Users/Mobilescreens/Starting_Screen/auth/login/login_screen.dart';
 
 class SignUpPage extends StatefulWidget {
@@ -31,7 +32,7 @@ class _SignUpPageState extends State<SignUpPage> {
         if (mounted) {
           Navigator.of(context).pushReplacement(
             MaterialPageRoute(
-              builder: (context) => const LoginScreen(),
+              builder: (context) => const AuthWrapper(),
             ),
           );
         }

@@ -23,6 +23,7 @@ class OnboardingArrowIcon extends StatelessWidget {
             borderRadius: BorderRadius.circular(14),
           ),
           child: const Icon(
+            
             Icons.arrow_forward,
             color: Colors.white,
           ),
