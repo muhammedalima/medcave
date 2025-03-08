@@ -1,29 +1,10 @@
-import 'package:cloud_firestore/cloud_firestore.dart';
-import 'package:firebase_auth/firebase_auth.dart';
 import 'package:flutter/material.dart';
-import 'package:medcave/Users/Mobilescreens/Starting_Screen/OnBoarding/widget/onboardingwidget.dart';
-import 'package:shared_preferences/shared_preferences.dart';
-
-class OnboardingData {
-  final String driverLicense;
-  final String phoneNumber;
-  final String name;
-  final bool isAmbulanceDriver;
-  final String vehicleRegistrationNumber;
-  final String ambulanceType;
-  final List<String> equipment;
-  bool _isSaving = false;
-
-  OnboardingData({
-    this.driverLicense = '',
-    this.phoneNumber = '',
-    this.name = '',
-    this.isAmbulanceDriver = false,
-    this.vehicleRegistrationNumber = '',
-    this.ambulanceType = '',
-    this.equipment = const [],
-  });
-}
+import 'package:medcave/Users/Mobilescreens/Starting_Screen/OnBoarding/widget/formlabel.dart';
+import 'package:medcave/Users/Mobilescreens/Starting_Screen/OnBoarding/widget/onboardinginput.dart';
+import 'package:medcave/Users/Mobilescreens/Starting_Screen/OnBoarding/widget/onboardingwidget_arrow.dart';
+import 'package:medcave/Users/Mobilescreens/Starting_Screen/OnBoarding/widget/selectableButtton.dart';
+import 'package:medcave/Users/Mobilescreens/bottom_navigation_bar/bottom_navigation_bar.dart';
+import 'package:medcave/database/User/user_db.dart';
 
 class Onboarding extends StatefulWidget {
   const Onboarding({super.key});
@@ -35,41 +16,61 @@ class Onboarding extends StatefulWidget {
 class _OnboardingState extends State<Onboarding> {
   final PageController _pageController = PageController();
   final _formKey = GlobalKey<FormState>();
+  final _scrollController = ScrollController();
   int _currentPage = 0;
   String selectedAmbulanceType = '';
   List<String> selectedEquipment = [];
   OnboardingData _data = OnboardingData();
+  bool _isSaving = false;
+  bool _keyboardVisible = false;
 
   Future<void> _saveOnboardingData() async {
-    try {
-      final user = FirebaseAuth.instance.currentUser;
-      if (user != null) {
-        await FirebaseFirestore.instance.collection('users').doc(user.uid).set({
-          'driverLicense': _data.driverLicense,
-          'phoneNumber': _data.phoneNumber,
-          'name': _data.name,
-          'isAmbulanceDriver': _data.isAmbulanceDriver,
-          'vehicleRegistrationNumber': _data.vehicleRegistrationNumber,
-          'ambulanceType': selectedAmbulanceType,
-          'equipment': selectedEquipment,
-          'createdAt': FieldValue.serverTimestamp(),
-          'updatedAt': FieldValue.serverTimestamp(),
-        }, SetOptions(merge: true));
+    if (_isSaving) return;
+    setState(() {
+      _isSaving = true;
+    });
 
-        final prefs = await SharedPreferences.getInstance();
-        await prefs.setBool('hasSeenOnboarding', true);
+    try {
+      bool success = await OnboardingService.saveOnboardingData(
+        _data,
+        selectedAmbulanceType,
+        selectedEquipment,
+      );
+
+      if (!success && mounted) {
+        ScaffoldMessenger.of(context).showSnackBar(
+          const SnackBar(content: Text('Error saving data. Please try again.')),
+        );
       }
     } catch (e) {
-      // ignore: use_build_context_synchronously
-      ScaffoldMessenger.of(context).showSnackBar(
-        SnackBar(content: Text('Error saving data: $e')),
-      );
+      if (mounted) {
+        ScaffoldMessenger.of(context).showSnackBar(
+          SnackBar(content: Text('Error saving data: $e')),
+        );
+      }
+    } finally {
+      setState(() {
+        _isSaving = false;
+      });
     }
+  }
+
+  @override
+  void initState() {
+    super.initState();
+    // Add listener for keyboard visibility changes
+    WidgetsBinding.instance.addPostFrameCallback((_) {
+      final keyboardHeight = MediaQuery.of(context).viewInsets.bottom;
+      setState(() {
+        _keyboardVisible = keyboardHeight > 0;
+      });
+    });
   }
 
   @override
   void dispose() {
     _pageController.dispose();
+    _scrollController.dispose();
     super.dispose();
   }
 
@@ -80,24 +81,9 @@ class _OnboardingState extends State<Onboarding> {
         crossAxisAlignment: CrossAxisAlignment.start,
         mainAxisSize: MainAxisSize.min,
         children: [
-          const Text(
-            "What's your name?",
-            style: TextStyle(
-              fontSize: 16,
-              fontWeight: FontWeight.w500,
-              color: Colors.black87,
-            ),
-          ),
+          const FormLabelText(text: "What's your name?"),
           const SizedBox(height: 8),
-          Container(
-            decoration: BoxDecoration(
-              color: const Color(0xFFF3F4F6),
-              borderRadius: BorderRadius.circular(12),
-            ),
-            padding: const EdgeInsets.symmetric(
-              horizontal: 16,
-              vertical: 4,
-            ),
+          InputFieldContainer(
             child: TextFormField(
               initialValue: _data.name,
               decoration: const InputDecoration(
@@ -126,21 +112,13 @@ class _OnboardingState extends State<Onboarding> {
                     vehicleRegistrationNumber: _data.vehicleRegistrationNumber,
                     ambulanceType: _data.ambulanceType,
                     equipment: _data.equipment,
-                    
                   );
                 });
               },
             ),
           ),
           const SizedBox(height: 24),
-          const Text(
-            'Are you driving an ambulance?',
-            style: TextStyle(
-              fontSize: 16,
-              fontWeight: FontWeight.w500,
-              color: Colors.black87,
-            ),
-          ),
+          const FormLabelText(text: 'Are you driving an ambulance?'),
           const SizedBox(height: 16),
           Row(
             children: [
@@ -230,24 +208,9 @@ class _OnboardingState extends State<Onboarding> {
         crossAxisAlignment: CrossAxisAlignment.start,
         mainAxisSize: MainAxisSize.min,
         children: [
-          const Text(
-            "What's your phone number?",
-            style: TextStyle(
-              fontSize: 16,
-              fontWeight: FontWeight.w500,
-              color: Colors.black87,
-            ),
-          ),
+          const FormLabelText(text: "What's your phone number?"),
           const SizedBox(height: 8),
-          Container(
-            decoration: BoxDecoration(
-              color: const Color(0xFFF3F4F6),
-              borderRadius: BorderRadius.circular(12),
-            ),
-            padding: const EdgeInsets.symmetric(
-              horizontal: 16,
-              vertical: 4,
-            ),
+          InputFieldContainer(
             child: TextFormField(
               initialValue: _data.phoneNumber,
               keyboardType: TextInputType.phone,
@@ -295,24 +258,9 @@ class _OnboardingState extends State<Onboarding> {
         crossAxisAlignment: CrossAxisAlignment.start,
         mainAxisSize: MainAxisSize.min,
         children: [
-          const Text(
-            "What's your driving license number?",
-            style: TextStyle(
-              fontSize: 16,
-              fontWeight: FontWeight.w500,
-              color: Colors.black87,
-            ),
-          ),
+          const FormLabelText(text: "What's your driving license number?"),
           const SizedBox(height: 8),
-          Container(
-            decoration: BoxDecoration(
-              color: const Color(0xFFF3F4F6),
-              borderRadius: BorderRadius.circular(12),
-            ),
-            padding: const EdgeInsets.symmetric(
-              horizontal: 16,
-              vertical: 4,
-            ),
+          InputFieldContainer(
             child: TextFormField(
               initialValue: _data.driverLicense,
               textCapitalization: TextCapitalization.characters,
@@ -356,6 +304,7 @@ class _OnboardingState extends State<Onboarding> {
     return Padding(
       padding: const EdgeInsets.all(20.0),
       child: SingleChildScrollView(
+        controller: _scrollController,
         child: Column(
           crossAxisAlignment: CrossAxisAlignment.start,
           mainAxisSize: MainAxisSize.min,
@@ -369,24 +318,9 @@ class _OnboardingState extends State<Onboarding> {
               ),
             ),
             const SizedBox(height: 16),
-            const Text(
-              "Vehicle Registration Number",
-              style: TextStyle(
-                fontSize: 16,
-                fontWeight: FontWeight.w500,
-                color: Colors.black87,
-              ),
-            ),
+            const FormLabelText(text: "Vehicle Registration Number"),
             const SizedBox(height: 8),
-            Container(
-              decoration: BoxDecoration(
-                color: const Color(0xFFF3F4F6),
-                borderRadius: BorderRadius.circular(12),
-              ),
-              padding: const EdgeInsets.symmetric(
-                horizontal: 16,
-                vertical: 4,
-              ),
+            InputFieldContainer(
               child: TextFormField(
                 initialValue: _data.vehicleRegistrationNumber,
                 textCapitalization: TextCapitalization.characters,
@@ -422,54 +356,40 @@ class _OnboardingState extends State<Onboarding> {
               ),
             ),
             const SizedBox(height: 24),
-            const Text(
-              "Ambulance Type",
-              style: TextStyle(
-                fontSize: 16,
-                fontWeight: FontWeight.w500,
-                color: Colors.black87,
-              ),
-            ),
+            const FormLabelText(text: "Ambulance Type"),
             const SizedBox(height: 8),
-            _buildSelectableButton(
-              "Basic Life Support",
-              "BLS - Essential medical equipment and trained staff",
-              selectedAmbulanceType == "BLS",
-              () => setState(() => selectedAmbulanceType = "BLS"),
+            SelectableButton(
+              title: "Basic Life Support",
+              subtitle: "BLS - Essential medical equipment and trained staff",
+              isSelected: selectedAmbulanceType == "BLS",
+              onTap: () => setState(() => selectedAmbulanceType = "BLS"),
             ),
-            _buildSelectableButton(
-              "Advanced Life Support",
-              "ALS - Advanced medical equipment and specialized staff",
-              selectedAmbulanceType == "ALS",
-              () => setState(() => selectedAmbulanceType = "ALS"),
+            SelectableButton(
+              title: "Advanced Life Support",
+              subtitle: "ALS - Advanced medical equipment and specialized staff",
+              isSelected: selectedAmbulanceType == "ALS",
+              onTap: () => setState(() => selectedAmbulanceType = "ALS"),
             ),
-            _buildSelectableButton(
-              "Patient Transport Vehicle",
-              "PTV - Basic medical support for non-emergency transport",
-              selectedAmbulanceType == "PTV",
-              () => setState(() => selectedAmbulanceType = "PTV"),
+            SelectableButton(
+              title: "Patient Transport Vehicle",
+              subtitle: "PTV - Basic medical support for non-emergency transport",
+              isSelected: selectedAmbulanceType == "PTV",
+              onTap: () => setState(() => selectedAmbulanceType = "PTV"),
             ),
-            _buildSelectableButton(
-              "Neonatal Ambulance",
-              "Specialized equipment for newborn care",
-              selectedAmbulanceType == "NEONATAL",
-              () => setState(() => selectedAmbulanceType = "NEONATAL"),
+            SelectableButton(
+              title: "Neonatal Ambulance",
+              subtitle: "Specialized equipment for newborn care",
+              isSelected: selectedAmbulanceType == "NEONATAL",
+              onTap: () => setState(() => selectedAmbulanceType = "NEONATAL"),
             ),
             const SizedBox(height: 24),
-            const Text(
-              "Equipment and Facilities",
-              style: TextStyle(
-                fontSize: 16,
-                fontWeight: FontWeight.w500,
-                color: Colors.black87,
-              ),
-            ),
+            const FormLabelText(text: "Equipment and Facilities"),
             const SizedBox(height: 8),
-            _buildSelectableButton(
-              "Oxygen Cylinders",
-              "Portable and fixed oxygen supply systems",
-              selectedEquipment.contains("OXYGEN"),
-              () => setState(() {
+            SelectableButton(
+              title: "Oxygen Cylinders",
+              subtitle: "Portable and fixed oxygen supply systems",
+              isSelected: selectedEquipment.contains("OXYGEN"),
+              onTap: () => setState(() {
                 if (selectedEquipment.contains("OXYGEN")) {
                   selectedEquipment.remove("OXYGEN");
                 } else {
@@ -477,11 +397,11 @@ class _OnboardingState extends State<Onboarding> {
                 }
               }),
             ),
-            _buildSelectableButton(
-              "Defibrillators",
-              "Automated External Defibrillator (AED)",
-              selectedEquipment.contains("DEFIBRILLATOR"),
-              () => setState(() {
+            SelectableButton(
+              title: "Defibrillators",
+              subtitle: "Automated External Defibrillator (AED)",
+              isSelected: selectedEquipment.contains("DEFIBRILLATOR"),
+              onTap: () => setState(() {
                 if (selectedEquipment.contains("DEFIBRILLATOR")) {
                   selectedEquipment.remove("DEFIBRILLATOR");
                 } else {
@@ -489,11 +409,11 @@ class _OnboardingState extends State<Onboarding> {
                 }
               }),
             ),
-            _buildSelectableButton(
-              "Ventilators",
-              "Portable mechanical ventilation system",
-              selectedEquipment.contains("VENTILATOR"),
-              () => setState(() {
+            SelectableButton(
+              title: "Ventilators",
+              subtitle: "Portable mechanical ventilation system",
+              isSelected: selectedEquipment.contains("VENTILATOR"),
+              onTap: () => setState(() {
                 if (selectedEquipment.contains("VENTILATOR")) {
                   selectedEquipment.remove("VENTILATOR");
                 } else {
@@ -501,11 +421,11 @@ class _OnboardingState extends State<Onboarding> {
                 }
               }),
             ),
-            _buildSelectableButton(
-              "Emergency Medical Kit",
-              "Complete first aid and emergency supplies",
-              selectedEquipment.contains("EMERGENCY_KIT"),
-              () => setState(() {
+            SelectableButton(
+              title: "Emergency Medical Kit",
+              subtitle: "Complete first aid and emergency supplies",
+              isSelected: selectedEquipment.contains("EMERGENCY_KIT"),
+              onTap: () => setState(() {
                 if (selectedEquipment.contains("EMERGENCY_KIT")) {
                   selectedEquipment.remove("EMERGENCY_KIT");
                 } else {
@@ -520,83 +440,34 @@ class _OnboardingState extends State<Onboarding> {
     );
   }
 
-  Widget _buildSelectableButton(
-    String title,
-    String subtitle,
-    bool isSelected,
-    VoidCallback onTap,
-  ) {
-    return Padding(
-      padding: const EdgeInsets.only(bottom: 8.0),
-      child: InkWell(
-        onTap: onTap,
-        child: Container(
-          padding: const EdgeInsets.all(16),
-          decoration: BoxDecoration(
-            color: isSelected
-                ? const Color(0xFF7B7BEA).withOpacity(0.1)
-                : const Color(0xFFF3F4F6),
-            borderRadius: BorderRadius.circular(12),
-            border: Border.all(
-              color: isSelected ? const Color(0xFF7B7BEA) : Colors.transparent,
-              width: 2,
-            ),
-          ),
-          child: Row(
-            children: [
-              Expanded(
-                child: Column(
-                  crossAxisAlignment: CrossAxisAlignment.start,
-                  children: [
-                    Text(
-                      title,
-                      style: const TextStyle(
-                        fontSize: 16,
-                        fontWeight: FontWeight.w500,
-                      ),
-                    ),
-                    if (subtitle.isNotEmpty)
-                      Text(
-                        subtitle,
-                        style: TextStyle(
-                          fontSize: 14,
-                          color: Colors.grey[600],
-                        ),
-                      ),
-                  ],
-                ),
-              ),
-              if (isSelected)
-                const Icon(
-                  Icons.check_circle,
-                  color: Color(0xFF7B7BEA),
-                ),
-            ],
-          ),
-        ),
-      ),
-    );
-  }
-
   void _handleNext() async {
     if (_formKey.currentState!.validate()) {
-      if (_currentPage == 3) {
-        // On the last page, save all data
-        setState(() {
-          _data = OnboardingData(
-            driverLicense: _data.driverLicense,
-            phoneNumber: _data.phoneNumber,
-            name: _data.name,
-            isAmbulanceDriver: _data.isAmbulanceDriver,
-            vehicleRegistrationNumber: _data.vehicleRegistrationNumber,
+      // If user is not an ambulance driver and we're on page 1 (phone number)
+      if (!_data.isAmbulanceDriver && _currentPage == 1) {
+        // Save the data and proceed to home
+        await _saveOnboardingData();
+        if (mounted) {
+          Navigator.of(context).pushReplacement(
+            MaterialPageRoute(
+              builder: (context) => const CustomNavigationBar(),
+            ),
           );
-        });
-        
+        }
+        return;
+      }
+
+      // For ambulance drivers, or for the first page for all users
+      if (_currentPage == 3 ||
+          (_currentPage == 1 && !_data.isAmbulanceDriver)) {
+        // On the last page, save all data
         await _saveOnboardingData();
         // Navigate to home screen or next screen
         if (mounted) {
-          Navigator.of(context)
-              .pushReplacementNamed('/home'); // Adjust route as needed
+          Navigator.of(context).pushReplacement(
+            MaterialPageRoute(
+              builder: (context) => const CustomNavigationBar(),
+            ),
+          );
         }
       } else {
         _pageController.nextPage(
@@ -607,35 +478,84 @@ class _OnboardingState extends State<Onboarding> {
     }
   }
 
+  // Get the total pages based on whether user is ambulance driver or not
+  int get _totalPages => _data.isAmbulanceDriver ? 4 : 2;
+
   @override
   Widget build(BuildContext context) {
+    // Get keyboard height to adjust the form
+    final keyboardHeight = MediaQuery.of(context).viewInsets.bottom;
+    final screenHeight = MediaQuery.of(context).size.height;
+
+    // Update keyboard visibility
+    bool keyboardIsVisible = keyboardHeight > 0;
+    if (_keyboardVisible != keyboardIsVisible) {
+      WidgetsBinding.instance.addPostFrameCallback((_) {
+        setState(() {
+          _keyboardVisible = keyboardIsVisible;
+        });
+      });
+    }
+
     return Scaffold(
+      // Resizeability to avoid keyboard overlap
+      resizeToAvoidBottomInset: true,
       backgroundColor: const Color(0xFF7B7BEA),
-      body: SingleChildScrollView(
-        child: SafeArea(
+      body: SafeArea(
+        // Using a SingleChildScrollView with resizeToAvoidBottomInset: true
+        // allows the content to scroll when keyboard appears
+        child: SingleChildScrollView(
+          // This physics makes the scrolling more responsive
+          physics: const ClampingScrollPhysics(),
+          // Add padding at the bottom equal to keyboard height to ensure
+          // content is above the keyboard
+          padding:
+              EdgeInsets.only(bottom: keyboardHeight > 0 ? keyboardHeight : 0),
           child: Column(
             children: [
-              const SizedBox(height: 40),
-              const Padding(
-                padding: EdgeInsets.symmetric(horizontal: 8.0),
-                child: Text(
-                  'Welcome to MedCave Ambulance Service!',
-                  textAlign: TextAlign.center,
-                  style: TextStyle(
-                    fontSize: 24,
-                    fontWeight: FontWeight.bold,
-                    color: Colors.white,
-                  ),
-                ),
+              // Header and logo section - hide if keyboard is visible to save space
+              AnimatedContainer(
+                duration: const Duration(milliseconds: 200),
+                height: keyboardIsVisible ? 20 : 40,
+                child: keyboardIsVisible ? null : const SizedBox(height: 40),
               ),
-              Image.asset(
-                'assets/ambulance.png',
-                height: 300,
-                fit: BoxFit.contain,
+              AnimatedContainer(
+                duration: const Duration(milliseconds: 200),
+                height: keyboardIsVisible ? 0 : null,
+                child: keyboardIsVisible
+                    ? const SizedBox.shrink()
+                    : const Padding(
+                        padding: EdgeInsets.symmetric(horizontal: 8.0),
+                        child: Text(
+                          'Welcome to MedCave Ambulance Service!',
+                          textAlign: TextAlign.center,
+                          style: TextStyle(
+                            fontSize: 24,
+                            fontWeight: FontWeight.bold,
+                            color: Colors.white,
+                          ),
+                        ),
+                      ),
               ),
-              const SizedBox(height: 5),
+              AnimatedContainer(
+                duration: const Duration(milliseconds: 200),
+                height: keyboardIsVisible ? 0 : 300,
+                child: keyboardIsVisible
+                    ? const SizedBox.shrink()
+                    : Image.asset(
+                        'assets/ambulance.png',
+                        height: 300,
+                        fit: BoxFit.contain,
+                      ),
+              ),
+              // Form container section
               Container(
-                height: MediaQuery.of(context).size.height * 0.5,
+                // Adjust height dynamically based on keyboard visibility
+                height: keyboardIsVisible
+                    ? screenHeight -
+                        keyboardHeight -
+                        80 // Give more space for form
+                    : screenHeight * 0.5,
                 decoration: const BoxDecoration(
                   color: Colors.white,
                   borderRadius: BorderRadius.only(
@@ -647,6 +567,7 @@ class _OnboardingState extends State<Onboarding> {
                   key: _formKey,
                   child: PageView(
                     controller: _pageController,
+                    physics: const NeverScrollableScrollPhysics(),
                     onPageChanged: (index) {
                       setState(() {
                         _currentPage = index;
@@ -655,60 +576,69 @@ class _OnboardingState extends State<Onboarding> {
                     children: [
                       _firstForm(),
                       _secondForm(),
-                      _thirdForm(),
-                      _fourthForm(),
+                      if (_data.isAmbulanceDriver) _thirdForm(),
+                      if (_data.isAmbulanceDriver) _fourthForm(),
                     ],
                   ),
                 ),
               ),
+              // Extra space at the bottom for the button sheet to sit on
+              SizedBox(height: keyboardIsVisible ? 0 : 80),
             ],
           ),
         ),
       ),
-      bottomSheet: Container(
-        color: Colors.transparent,
-        padding: const EdgeInsets.all(25),
-        child: Row(
-          mainAxisAlignment: MainAxisAlignment.spaceBetween,
-          children: [
-            if (_currentPage > 0)
-              Onboardingarrrowicon(
-                rotateAngle: -2.4,
-                onclick: () {
-                  _pageController.previousPage(
-                    duration: const Duration(milliseconds: 300),
-                    curve: Curves.easeInOut,
-                  );
-                },
-              )
-            else
-              const SizedBox.shrink(),
-            if (_currentPage < 3)
-              Onboardingarrrowicon(
-                rotateAngle: 0.8,
-                onclick: _handleNext,
-              )
-            else
-              ElevatedButton(
-                onPressed: _handleNext,
-                style: ElevatedButton.styleFrom(
-                  backgroundColor: const Color(0xFF7B7BEA),
-                  padding:
-                      const EdgeInsets.symmetric(horizontal: 32, vertical: 16),
-                  shape: RoundedRectangleBorder(
-                    borderRadius: BorderRadius.circular(12),
+      // Position the bottom sheet above the keyboard
+      bottomSheet: Padding(
+        // Add padding to avoid keyboard
+        padding: EdgeInsets.only(bottom: keyboardHeight),
+        child: Container(
+          color: Colors.transparent,
+          padding: const EdgeInsets.all(25),
+          child: Row(
+            mainAxisAlignment: MainAxisAlignment.spaceBetween,
+            children: [
+              if (_currentPage > 0)
+                OnboardingArrowIcon(
+                  rotateAngle: -2.4,
+                  onclick: () {
+                    _pageController.previousPage(
+                      duration: const Duration(milliseconds: 300),
+                      curve: Curves.easeInOut,
+                    );
+                  },
+                )
+              else
+                const SizedBox.shrink(),
+              if (_currentPage < _totalPages - 1)
+                OnboardingArrowIcon(
+                  rotateAngle: 0.8,
+                  onclick: _handleNext,
+                )
+              else
+                ElevatedButton(
+                  onPressed: _isSaving ? null : _handleNext,
+                  style: ElevatedButton.styleFrom(
+                    backgroundColor: const Color(0xFF7B7BEA),
+                    padding: const EdgeInsets.symmetric(
+                        horizontal: 32, vertical: 16),
+                    shape: RoundedRectangleBorder(
+                      borderRadius: BorderRadius.circular(12),
+                    ),
                   ),
+                  child: _isSaving
+                      ? const CircularProgressIndicator(color: Colors.white)
+                      : const Text(
+                          'Complete',
+                          style: TextStyle(
+                            color: Colors.white,
+                            fontSize: 16,
+                            fontWeight: FontWeight.w600,
+                          ),
+                        ),
                 ),
-                child: const Text(
-                  'Complete',
-                  style: TextStyle(
-                    color: Colors.white,
-                    fontSize: 16,
-                    fontWeight: FontWeight.w600,
-                  ),
-                ),
-              ),
-          ],
+            ],
+          ),
         ),
       ),
     );

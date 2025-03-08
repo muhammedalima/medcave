@@ -44,6 +44,7 @@ dependencies:
   firebase_auth:
   firebase_database:
   shared_preferences:
+  google_sign_in:
   cloud_firestore: ^5.6.1
   gif:
   google_generative_ai:
@@ -78,6 +79,7 @@ flutter:
   assets:
     - assets/vectors/
     - assets/ambulance.png
+    - assets/ambulanceImage.gif
   # An image asset can refer to one or more resolution-specific "variants", see
   # https://flutter.dev/assets-and-images/#resolution-aware
 

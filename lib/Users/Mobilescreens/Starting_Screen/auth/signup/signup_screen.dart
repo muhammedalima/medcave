@@ -29,7 +29,7 @@ class _SignUpPageState extends State<SignUpPage> {
           password: _passwordController.text,
         );
         if (mounted) {
-                    Navigator.of(context).pushReplacement(
+          Navigator.of(context).pushReplacement(
             MaterialPageRoute(
               builder: (context) => const LoginScreen(),
             ),
@@ -72,7 +72,7 @@ class _SignUpPageState extends State<SignUpPage> {
               const Padding(
                 padding: EdgeInsets.symmetric(horizontal: 8.0),
                 child: Text(
-                  'Welcome to MedCave Ambulance Service!',
+                  'Welcome to MedCave',
                   textAlign: TextAlign.center,
                   style: TextStyle(
                     fontSize: 24,
@@ -82,7 +82,7 @@ class _SignUpPageState extends State<SignUpPage> {
                 ),
               ),
               Image.asset(
-                'assets/ambulance.png',
+                'assets/ambulanceImage.gif',
                 height: 300, // Increased image height
                 fit: BoxFit.contain,
               ),
@@ -103,20 +103,20 @@ class _SignUpPageState extends State<SignUpPage> {
                         mainAxisAlignment: MainAxisAlignment.spaceBetween,
                         children: [
                           const Text(
-                            'Welcome Back!!!',
+                            'Lets Start!',
                             style: TextStyle(
                               fontSize: 24,
                               fontWeight: FontWeight.bold,
                             ),
                           ),
-
-                      Container(
+                          Container(
                             decoration: BoxDecoration(
                               color: Colors.black,
                               borderRadius: BorderRadius.circular(12),
-                            ),child: IconButton(
-                          onPressed: _isLoading ? null : _signUp,
-                          icon: _isLoading
+                            ),
+                            child: IconButton(
+                              onPressed: _isLoading ? null : _signUp,
+                              icon: _isLoading
                                   ? const SizedBox(
                                       height: 20,
                                       width: 20,
@@ -213,17 +213,35 @@ class _SignUpPageState extends State<SignUpPage> {
                         ),
                       Center(
                         child: TextButton(
-                          onPressed: () {
-                            Navigator.pushReplacementNamed(context, '/login');
-                          },
-                          child: const Text(
-                            'Already have account? Sign Up',
-                            style: TextStyle(
-                              color: Colors.black,
-                              fontSize: 14,
-                            ),
-                          ),
-                        ),
+                            onPressed: () {
+                              Navigator.of(context).pushReplacement(
+                                MaterialPageRoute(
+                                  builder: (context) => const LoginScreen(),
+                                ),
+                              );
+                            },
+                            child: const Row(
+                              mainAxisAlignment: MainAxisAlignment.center,
+                              children: [
+                                Text(
+                                  'Already have account?',
+                                  style: TextStyle(
+                                    color: Colors.black,
+                                    fontSize: 14,
+                                  ),
+                                ),
+                                SizedBox(
+                                  width: 8,
+                                ),
+                                Text(
+                                  'Login',
+                                  style: TextStyle(
+                                      color: Colors.black,
+                                      fontSize: 14,
+                                      fontWeight: FontWeight.bold),
+                                ),
+                              ],
+                            )),
                       ),
                     ],
                   ),

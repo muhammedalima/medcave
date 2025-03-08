@@ -1,6 +1,7 @@
 import 'package:firebase_auth/firebase_auth.dart';
 import 'package:flutter/material.dart';
 import 'package:medcave/Users/Mobilescreens/Starting_Screen/auth/authwrapper.dart';
+import 'package:medcave/Users/Mobilescreens/Starting_Screen/auth/signup/signup_screen.dart';
 
 class LoginScreen extends StatefulWidget {
   const LoginScreen({super.key});
@@ -15,7 +16,6 @@ class _LoginScreenState extends State<LoginScreen> {
   final _passwordController = TextEditingController();
   bool _isLoading = false;
   String? _errorMessage;
-
   Future<void> _login() async {
     if (_formKey.currentState?.validate() ?? false) {
       setState(() {
@@ -88,7 +88,7 @@ class _LoginScreenState extends State<LoginScreen> {
               const Padding(
                 padding: EdgeInsets.symmetric(horizontal: 8.0),
                 child: Text(
-                  'Welcome to MedCave Ambulance Service!',
+                  'Welcome to MedCave',
                   textAlign: TextAlign.center,
                   style: TextStyle(
                     fontSize: 24,
@@ -98,8 +98,8 @@ class _LoginScreenState extends State<LoginScreen> {
                 ),
               ),
               Image.asset(
-                'assets/ambulance.png',
-                height: 300, // Increased image height
+                'assets/ambulanceImage.gif',
+                height: 300,
                 fit: BoxFit.contain,
               ),
               const SizedBox(height: 5),
@@ -230,21 +230,35 @@ class _LoginScreenState extends State<LoginScreen> {
                         ),
                       Center(
                         child: TextButton(
-                          onPressed: () {
-                            Navigator.of(context).pushReplacement(
-                              MaterialPageRoute(
-                                builder: (context) => const LoginScreen(),
-                              ),
-                            );
-                          },
-                          child: const Text(
-                            'New? Create An account',
-                            style: TextStyle(
-                              color: Colors.black,
-                              fontSize: 14,
-                            ),
-                          ),
-                        ),
+                            onPressed: () {
+                              Navigator.of(context).pushReplacement(
+                                MaterialPageRoute(
+                                  builder: (context) => const SignUpPage(),
+                                ),
+                              );
+                            },
+                            child: const Row(
+                              mainAxisAlignment: MainAxisAlignment.center,
+                              children: [
+                                Text(
+                                  'New to MedCave ?',
+                                  style: TextStyle(
+                                    color: Colors.black,
+                                    fontSize: 14,
+                                  ),
+                                ),
+                                SizedBox(
+                                  width: 8,
+                                ),
+                                Text(
+                                  'Sign Up',
+                                  style: TextStyle(
+                                      color: Colors.black,
+                                      fontSize: 14,
+                                      fontWeight: FontWeight.bold),
+                                ),
+                              ],
+                            )),
                       ),
                     ],
                   ),
