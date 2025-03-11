@@ -46,10 +46,18 @@ class Geminifunction {
 
       // Determine the primary emergency category
       String reason = _determineEmergencyCategory(description.toLowerCase());
+      
+      // Get a compact 2-word explanation for detailedReason if available, otherwise use the category
+      String detailedReason = jsonData['reason']?.toString() ?? reason;
+      if (detailedReason.split(' ').length > 2) {
+        // Try to create a more concise version
+        detailedReason = await getCompactDescription(detailedReason);
+      }
 
       return {
         'reason': reason,
-        'detailedReason': jsonData['reason']?.toString() ?? description,
+        'detailedReason': detailedReason,
+        'customDescription': description, // Store the original user description
         'type': jsonData['type']?.toString() ?? 'Unknown',
         'severity':
             _validateField(jsonData['severity'], validSeverity, 'Stable'),
@@ -90,9 +98,11 @@ class Geminifunction {
   }
 
   Map<String, dynamic> _getDefaultResponse(String description) {
+    final category = _determineEmergencyCategory(description.toLowerCase());
     return {
-      'reason': _determineEmergencyCategory(description.toLowerCase()),
-      'detailedReason': description,
+      'reason': category,
+      'detailedReason': category,
+      'customDescription': description, // Store the original user description
       'type': 'Unknown',
       'severity': 'Stable',
       'consciousness': 'Conscious',
@@ -122,6 +132,45 @@ Analyze this emergency: $description
 
     final response = await _model.generateContent([Content.text(prompt)]);
     return response.text;
+  }
+  
+  // New method to create a compact 2-word description
+  Future<String> getCompactDescription(String originalDescription) async {
+    try {
+      final prompt = '''
+Given this emergency description: "$originalDescription"
+Provide a concise 2-word label that best describes this medical emergency.
+Only provide the 2 words, nothing else. For example: "Heart Attack", "Severe Bleeding", etc.
+''';
+
+      final response = await _model.generateContent([Content.text(prompt)]);
+      final compactDescription = response.text?.trim() ?? originalDescription;
+      
+      // If still more than 2 words or empty, use first 2 words of original or default
+      final words = compactDescription.split(' ');
+      if (words.length != 2 || compactDescription.isEmpty) {
+        final originalWords = originalDescription.split(' ');
+        if (originalWords.length >= 2) {
+          return '${originalWords[0]} ${originalWords[1]}';
+        } else if (originalWords.isNotEmpty) {
+          return originalWords[0];
+        } else {
+          return 'Medical Emergency';
+        }
+      }
+      
+      return compactDescription;
+    } catch (e) {
+      // If any error occurs, use the first 2 words of the original description
+      final words = originalDescription.split(' ');
+      if (words.length >= 2) {
+        return '${words[0]} ${words[1]}';
+      } else if (words.isNotEmpty) {
+        return words[0];
+      } else {
+        return 'Medical Emergency';
+      }
+    }
   }
 }
 

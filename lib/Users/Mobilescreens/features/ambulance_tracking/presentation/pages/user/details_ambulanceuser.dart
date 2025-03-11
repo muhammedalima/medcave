@@ -15,7 +15,8 @@ class UserAmbulanceDetailScreen extends StatefulWidget {
   });
 
   @override
-  State<UserAmbulanceDetailScreen> createState() => _UserAmbulanceDetailScreenState();
+  State<UserAmbulanceDetailScreen> createState() =>
+      _UserAmbulanceDetailScreenState();
 }
 
 class _UserAmbulanceDetailScreenState extends State<UserAmbulanceDetailScreen> {
@@ -30,19 +31,20 @@ class _UserAmbulanceDetailScreenState extends State<UserAmbulanceDetailScreen> {
 
   Future<void> _fetchDriverName() async {
     try {
-      final String? driverId = widget.completeData['assignedDriverId'] as String?;
-      
+      final String? driverId =
+          widget.completeData['assignedDriverId'] as String?;
+
       if (driverId != null) {
         // Fetch driver data from Firestore
         final driverDoc = await FirebaseFirestore.instance
             .collection('drivers')
             .doc(driverId)
             .get();
-        
+
         if (driverDoc.exists) {
           // First check if there's a name field in the driver document
           final driverData = driverDoc.data() as Map<String, dynamic>;
-          
+
           if (driverData.containsKey('name') && driverData['name'] != null) {
             setState(() {
               driverName = driverData['name'];
@@ -51,18 +53,20 @@ class _UserAmbulanceDetailScreenState extends State<UserAmbulanceDetailScreen> {
           } else {
             // If no name in driver document, fetch from users collection using userId
             final String? userId = driverData['userId'] as String?;
-            
+
             if (userId != null) {
               final userDoc = await FirebaseFirestore.instance
                   .collection('users')
                   .doc(userId)
                   .get();
-                  
+
               if (userDoc.exists) {
                 final userData = userDoc.data() as Map<String, dynamic>;
                 setState(() {
                   // Get the name from user data
-                  driverName = userData['name'] ?? userData['fullName'] ?? 'Unknown Driver';
+                  driverName = userData['name'] ??
+                      userData['fullName'] ??
+                      'Unknown Driver';
                   isLoading = false;
                 });
               } else {
@@ -104,7 +108,8 @@ class _UserAmbulanceDetailScreenState extends State<UserAmbulanceDetailScreen> {
   @override
   Widget build(BuildContext context) {
     // Extract location data
-    final locationData = widget.completeData['location'] as Map<String, dynamic>;
+    final locationData =
+        widget.completeData['location'] as Map<String, dynamic>;
     final address = locationData['address'] as String;
 
     // Extract emergency data
@@ -355,16 +360,18 @@ class _UserAmbulanceDetailScreenState extends State<UserAmbulanceDetailScreen> {
                         ),
                         const SizedBox(width: 8),
                         Text(
-                          _formatStatus(widget.completeData['status'] ?? 'unknown'),
+                          _formatStatus(
+                              widget.completeData['status'] ?? 'unknown'),
                           style: TextStyle(
                             fontSize: 16,
                             fontWeight: FontWeight.bold,
-                            color: _getStatusTextColor(widget.completeData['status']),
+                            color: _getStatusTextColor(
+                                widget.completeData['status']),
                           ),
                         ),
                       ],
                     ),
-                    if (widget.completeData['status'] == 'accepted' || 
+                    if (widget.completeData['status'] == 'accepted' ||
                         widget.completeData['status'] == 'completed') ...[
                       const SizedBox(height: 12),
                       Row(

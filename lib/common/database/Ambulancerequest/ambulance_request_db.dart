@@ -27,6 +27,17 @@ class AmbulanceRequestDatabase {
 
       final userData = userDoc.data() as Map<String, dynamic>;
 
+      // Make sure emergencyData contains both customDescription and detailedReason
+      // If customDescription is missing but description is present, use that
+      if (!emergencyData.containsKey('customDescription') && emergencyData.containsKey('description')) {
+        emergencyData['customDescription'] = emergencyData['description'];
+      }
+      
+      // If no detailedReason but we have reason, use that
+      if (!emergencyData.containsKey('detailedReason') && emergencyData.containsKey('reason')) {
+        emergencyData['detailedReason'] = emergencyData['reason'];
+      }
+
       // Create request object
       final requestData = {
         'userId': userId,

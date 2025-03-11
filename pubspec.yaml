@@ -54,6 +54,7 @@ dependencies:
   geocoding:
   speech_to_text:
   intl:
+  flutter_polyline_points:
   workmanager:
     git:
       url: https://github.com/fluttercommunity/flutter_workmanager.git
