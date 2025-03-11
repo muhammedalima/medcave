@@ -1,4 +1,4 @@
-import 'dart:math';
+// ignore_for_file: prefer_const_constructors
 
 import 'package:flutter/material.dart';
 import 'package:medcave/Users/Mobilescreens/Starting_Screen/OnBoarding/widget/formlabel.dart';
@@ -6,7 +6,10 @@ import 'package:medcave/Users/Mobilescreens/Starting_Screen/OnBoarding/widget/on
 import 'package:medcave/Users/Mobilescreens/Starting_Screen/OnBoarding/widget/onboardingwidget_arrow.dart';
 import 'package:medcave/Users/Mobilescreens/Starting_Screen/OnBoarding/widget/selectableButtton.dart';
 import 'package:medcave/Users/Mobilescreens/bottom_navigation_bar/bottom_navigation_bar.dart';
-import 'package:medcave/database/User/user_db.dart';
+import 'package:medcave/common/database/User/driver_db.dart';
+import 'package:medcave/common/database/User/user_db.dart';
+import 'package:cloud_firestore/cloud_firestore.dart';
+import 'package:firebase_auth/firebase_auth.dart';
 
 class Onboarding extends StatefulWidget {
   const Onboarding({super.key});
@@ -34,16 +37,71 @@ class _OnboardingState extends State<Onboarding> {
     });
 
     try {
-      bool success = await OnboardingService.saveOnboardingData(
-        _data,
-        selectedAmbulanceType,
-        selectedEquipment,
-      );
+      final user = FirebaseAuth.instance.currentUser;
 
-      if (!success && mounted) {
-        ScaffoldMessenger.of(context).showSnackBar(
-          const SnackBar(content: Text('Error saving data. Please try again.')),
-        );
+      if (user != null) {
+        // Save basic user data first (for all users)
+        Map<String, dynamic> userData = {
+          'name': _data.name,
+          'phoneNumber': _data.phoneNumber,
+          'isAmbulanceDriver': _data.isAmbulanceDriver,
+          'isAdmin': false,
+          'age': _data.age,
+          'gender': _data.gender,
+          'createdAt': FieldValue.serverTimestamp(),
+          'updatedAt': FieldValue.serverTimestamp(),
+        };
+
+        // Save to users collection
+        await FirebaseFirestore.instance.collection('users').doc(user.uid).set(
+              userData,
+              SetOptions(merge: true),
+            );
+
+        // If user is an ambulance driver, save additional data to drivers collection
+        if (_data.isAmbulanceDriver) {
+          // Create driver data
+          DriverData driverData = DriverData(
+            driverId: user.uid,
+            userId: user.uid,
+            driverLicense: _data.driverLicense,
+            vehicleRegistrationNumber: _data.vehicleRegistrationNumber,
+            ambulanceType: selectedAmbulanceType,
+            equipment: selectedEquipment,
+            isDriverActive: true,
+          );
+
+          // Save to driver database
+          bool driverDataSaved =
+              await DriverDatabase.saveDriverData(driverData);
+
+          if (!driverDataSaved && mounted) {
+            ScaffoldMessenger.of(context).showSnackBar(
+              const SnackBar(
+                  content: Text('Error saving driver data. Please try again.')),
+            );
+            setState(() {
+              _isSaving = false;
+            });
+            return;
+          }
+        }
+
+        if (mounted) {
+          Navigator.of(context).pushReplacement(
+            MaterialPageRoute(
+              builder: (context) => const CustomNavigationBar(),
+            ),
+          );
+        }
+      } else {
+        if (mounted) {
+          ScaffoldMessenger.of(context).showSnackBar(
+            const SnackBar(
+                content: Text(
+                    'Error: User not authenticated. Please log in again.')),
+          );
+        }
       }
     } catch (e) {
       if (mounted) {
@@ -273,7 +331,8 @@ class _OnboardingState extends State<Onboarding> {
                         phoneNumber: _data.phoneNumber,
                         driverLicense: _data.driverLicense,
                         isAmbulanceDriver: _data.isAmbulanceDriver,
-                        vehicleRegistrationNumber: _data.vehicleRegistrationNumber,
+                        vehicleRegistrationNumber:
+                            _data.vehicleRegistrationNumber,
                         ambulanceType: _data.ambulanceType,
                         equipment: _data.equipment,
                         age: _data.age,
@@ -311,7 +370,8 @@ class _OnboardingState extends State<Onboarding> {
                         phoneNumber: _data.phoneNumber,
                         driverLicense: _data.driverLicense,
                         isAmbulanceDriver: _data.isAmbulanceDriver,
-                        vehicleRegistrationNumber: _data.vehicleRegistrationNumber,
+                        vehicleRegistrationNumber:
+                            _data.vehicleRegistrationNumber,
                         ambulanceType: _data.ambulanceType,
                         equipment: _data.equipment,
                         age: _data.age,
@@ -554,13 +614,15 @@ class _OnboardingState extends State<Onboarding> {
             ),
             SelectableButton(
               title: "Advanced Life Support",
-              subtitle: "ALS - Advanced medical equipment and specialized staff",
+              subtitle:
+                  "ALS - Advanced medical equipment and specialized staff",
               isSelected: selectedAmbulanceType == "ALS",
               onTap: () => setState(() => selectedAmbulanceType = "ALS"),
             ),
             SelectableButton(
               title: "Patient Transport Vehicle",
-              subtitle: "PTV - Basic medical support for non-emergency transport",
+              subtitle:
+                  "PTV - Basic medical support for non-emergency transport",
               isSelected: selectedAmbulanceType == "PTV",
               onTap: () => setState(() => selectedAmbulanceType = "PTV"),
             ),
@@ -789,7 +851,7 @@ class _OnboardingState extends State<Onboarding> {
             children: [
               if (_currentPage > 0)
                 OnboardingArrowIcon(
-                  rotateAngle: 180 * pi/180,
+                  rotateAngle: 180 * pi / 180,
                   onclick: () {
                     _pageController.previousPage(
                       duration: const Duration(milliseconds: 300),
@@ -808,7 +870,7 @@ class _OnboardingState extends State<Onboarding> {
                 ElevatedButton(
                   onPressed: _isSaving ? null : _handleNext,
                   style: ElevatedButton.styleFrom(
-                    backgroundColor: const Color(0xFF7B7BEA),
+                    backgroundColor: const Color(0xffff7b7bea),
                     padding: const EdgeInsets.symmetric(
                         horizontal: 32, vertical: 16),
                     shape: RoundedRectangleBorder(

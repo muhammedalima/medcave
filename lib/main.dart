@@ -1,5 +1,6 @@
 import 'package:firebase_core/firebase_core.dart';
 import 'package:flutter/material.dart';
+import 'package:medcave/common/googlemapfunction/location_update.dart';
 import 'package:medcave/config/theme/theme.dart';
 import 'package:medcave/firebase_options.dart';
 import 'package:medcave/Users/UserType/user_wrapper.dart';
@@ -9,6 +10,7 @@ Future<void> main() async {
   await Firebase.initializeApp(
     options: DefaultFirebaseOptions.currentPlatform,
   );
+  initializeBackgroundTasks();
   runApp(const MyApp());
 }
 

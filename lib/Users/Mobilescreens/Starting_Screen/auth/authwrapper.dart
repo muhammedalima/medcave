@@ -1,9 +1,9 @@
+import 'package:cloud_firestore/cloud_firestore.dart';
 import 'package:firebase_auth/firebase_auth.dart';
 import 'package:flutter/material.dart';
 import 'package:medcave/Users/Mobilescreens/Starting_Screen/OnBoarding/screen/onboarding.dart';
 import 'package:medcave/Users/Mobilescreens/Starting_Screen/auth/login/login_screen.dart';
 import 'package:medcave/Users/Mobilescreens/bottom_navigation_bar/bottom_navigation_bar.dart';
-import 'package:shared_preferences/shared_preferences.dart';
 
 class AuthWrapper extends StatefulWidget {
   const AuthWrapper({super.key});
@@ -14,23 +14,26 @@ class AuthWrapper extends StatefulWidget {
 
 class _AuthWrapperState extends State<AuthWrapper> {
   late final Stream<User?> _authStream;
-  bool? _hasSeenOnboarding; // Initialize as null for clarity
 
   @override
   void initState() {
     super.initState();
     _authStream = FirebaseAuth.instance.authStateChanges();
-    _checkOnboardingStatus(); // Call async onboarding check
   }
 
-  Future<void> _checkOnboardingStatus() async {
-    final prefs = await SharedPreferences.getInstance();
-    final hasSeen = prefs.getBool('hasSeenOnboarding') ?? false;
-
-    // Update the state to reflect onboarding status
-    setState(() {
-      _hasSeenOnboarding = hasSeen;
-    });
+  // Check if user data exists in Firestore
+  Future<bool> _userDataExists(String userId) async {
+    try {
+      final docSnapshot = await FirebaseFirestore.instance
+          .collection('users')
+          .doc(userId)
+          .get();
+      
+      return docSnapshot.exists;
+    } catch (e) {
+      debugPrint('Error checking user data: $e');
+      return false;
+    }
   }
 
   @override
@@ -38,8 +41,8 @@ class _AuthWrapperState extends State<AuthWrapper> {
     return StreamBuilder<User?>(
       stream: _authStream,
       builder: (context, snapshot) {
-        // Show loading indicator while checking auth state or onboarding
-        if (snapshot.connectionState == ConnectionState.waiting || _hasSeenOnboarding == null) {
+        // Show loading indicator while checking auth state
+        if (snapshot.connectionState == ConnectionState.waiting) {
           return const Scaffold(
             body: Center(
               child: CircularProgressIndicator(),
@@ -47,17 +50,33 @@ class _AuthWrapperState extends State<AuthWrapper> {
           );
         }
 
+        // If we have a logged-in user
         if (snapshot.hasData) {
-          // User is logged in
-          if (!_hasSeenOnboarding!) {
-            // First-time user - Show Onboarding
-            return const Onboarding();
-          }
-          // Returning user - Show Home Screen
-          return const CustomNavigationBar();
+          // Check if user data exists in Firestore
+          return FutureBuilder<bool>(
+            future: _userDataExists(snapshot.data!.uid),
+            builder: (context, userDataSnapshot) {
+              // Show loading while checking Firestore
+              if (userDataSnapshot.connectionState == ConnectionState.waiting) {
+                return const Scaffold(
+                  body: Center(
+                    child: CircularProgressIndicator(),
+                  ),
+                );
+              }
+
+              // If user data exists in Firestore, go to home
+              if (userDataSnapshot.data == true) {
+                return const CustomNavigationBar();
+              } else {
+                // No user data, show onboarding
+                return const Onboarding();
+              }
+            },
+          );
         }
 
-        // No user - Show Login Screen
+        // No authenticated user - Show Login Screen
         return const LoginScreen();
       },
     );

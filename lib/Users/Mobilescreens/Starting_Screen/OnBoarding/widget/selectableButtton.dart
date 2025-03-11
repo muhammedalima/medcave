@@ -1,3 +1,5 @@
+// ignore_for_file: file_names
+
 import 'package:flutter/material.dart';
 
 class SelectableButton extends StatelessWidget {
@@ -7,12 +9,12 @@ class SelectableButton extends StatelessWidget {
   final VoidCallback onTap;
 
   const SelectableButton({
-    Key? key,
+    super.key,
     required this.title,
     required this.subtitle,
     required this.isSelected,
     required this.onTap,
-  }) : super(key: key);
+  });
 
   @override
   Widget build(BuildContext context) {

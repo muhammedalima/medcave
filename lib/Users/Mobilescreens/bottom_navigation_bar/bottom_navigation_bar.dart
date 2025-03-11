@@ -1,3 +1,4 @@
+import 'package:flutter/foundation.dart';
 import 'package:flutter/material.dart';
 import 'package:fluttericon/font_awesome_icons.dart';
 import 'package:fluttericon/octicons_icons.dart';
@@ -21,7 +22,7 @@ class _CustomNavigationBarState extends State<CustomNavigationBar> {
   int _selectedIndex = 0;
   bool _isAmbulanceDriver = false;
   bool _isLoading = true;
-  
+
   late List<Widget> _widgetOptions;
   late List<GButton> _navButtons;
 
@@ -39,10 +40,11 @@ class _CustomNavigationBarState extends State<CustomNavigationBar> {
             .collection('users')
             .doc(user.uid)
             .get();
-        
+
         if (userData.exists) {
-          final bool isAmbulanceDriver = userData.data()?['isAmbulanceDriver'] ?? false;
-          
+          final bool isAmbulanceDriver =
+              userData.data()?['isAmbulanceDriver'] ?? false;
+
           setState(() {
             _isAmbulanceDriver = isAmbulanceDriver;
             _isLoading = false;
@@ -56,7 +58,9 @@ class _CustomNavigationBarState extends State<CustomNavigationBar> {
           });
         }
       } catch (e) {
-        print('Error fetching user role: $e');
+        if (kDebugMode) {
+          print('Error fetching user role: $e');
+        }
         setState(() {
           _isAmbulanceDriver = false;
           _isLoading = false;
@@ -78,10 +82,10 @@ class _CustomNavigationBarState extends State<CustomNavigationBar> {
       _widgetOptions = const <Widget>[
         HomePage(),
         HospitalPage(),
-        AmbulanceDriverPage(),
+        AmbulanceDriverScreen(),
         ProfilePage(),
       ];
-      
+
       _navButtons = const [
         GButton(
           icon: Octicons.home,
@@ -107,7 +111,7 @@ class _CustomNavigationBarState extends State<CustomNavigationBar> {
         HospitalPage(),
         ProfilePage(),
       ];
-      
+
       _navButtons = const [
         GButton(
           icon: Octicons.home,
@@ -123,7 +127,7 @@ class _CustomNavigationBarState extends State<CustomNavigationBar> {
         ),
       ];
     }
-    
+
     // Reset selected index if needed
     if (_selectedIndex >= _widgetOptions.length) {
       _selectedIndex = 0;
@@ -139,7 +143,7 @@ class _CustomNavigationBarState extends State<CustomNavigationBar> {
         ),
       );
     }
-    
+
     return Scaffold(
       body: Center(
         child: _widgetOptions.elementAt(_selectedIndex),

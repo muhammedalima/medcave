@@ -1,4 +1,5 @@
 import 'package:firebase_auth/firebase_auth.dart';
+import 'package:flutter/foundation.dart';
 import 'package:flutter/material.dart';
 import 'package:medcave/Users/Mobilescreens/Starting_Screen/auth/authwrapper.dart';
 import 'package:medcave/Users/Mobilescreens/Starting_Screen/auth/signup/signup_screen.dart';
@@ -31,7 +32,9 @@ class _LoginScreenState extends State<LoginScreen> {
           password: _passwordController.text,
         );
 
-        print("Sign in successful: ${userCredential.user?.uid}"); // Debug print
+        if (kDebugMode) {
+          print("Sign in successful: ${userCredential.user?.uid}");
+        } // Debug print
 
         if (mounted) {
           // Navigate to AuthWrapper, which handles onboarding logic
@@ -41,7 +44,9 @@ class _LoginScreenState extends State<LoginScreen> {
           );
         }
       } on FirebaseAuthException catch (e) {
-        print("Firebase Auth Error: ${e.code}"); // Debug print
+        if (kDebugMode) {
+          print("Firebase Auth Error: ${e.code}");
+        } // Debug print
         setState(() {
           switch (e.code) {
             case 'user-not-found':
@@ -55,7 +60,9 @@ class _LoginScreenState extends State<LoginScreen> {
           }
         });
       } catch (e) {
-        print("General Error: $e"); // Debug print
+        if (kDebugMode) {
+          print("General Error: $e");
+        } // Debug print
         setState(() {
           _errorMessage = 'An unexpected error occurred';
         });

@@ -5,10 +5,10 @@ class OnboardingArrowIcon extends StatelessWidget {
   final VoidCallback onclick;
 
   const OnboardingArrowIcon({
-    Key? key,
+    super.key,
     required this.rotateAngle,
     required this.onclick,
-  }) : super(key: key);
+  });
 
   @override
   Widget build(BuildContext context) {

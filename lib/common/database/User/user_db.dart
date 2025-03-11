@@ -1,8 +1,8 @@
 import 'package:cloud_firestore/cloud_firestore.dart';
 import 'package:firebase_auth/firebase_auth.dart';
+import 'package:flutter/foundation.dart';
 import 'package:shared_preferences/shared_preferences.dart';
 
-// Define the OnboardingData class that was missing from the original code
 class OnboardingData {
   final String? name;
   final String? phoneNumber;
@@ -72,7 +72,9 @@ class OnboardingService {
       }
       return false;
     } catch (e) {
-      print('Error saving onboarding data: $e');
+      if (kDebugMode) {
+        print('Error saving onboarding data: $e');
+      }
       return false;
     }
   }
@@ -83,7 +85,9 @@ class OnboardingService {
       final prefs = await SharedPreferences.getInstance();
       return prefs.getBool('hasSeenOnboarding') ?? false;
     } catch (e) {
-      print('Error checking onboarding status: $e');
+      if (kDebugMode) {
+        print('Error checking onboarding status: $e');
+      }
       return false;
     }
   }
@@ -103,7 +107,9 @@ class OnboardingService {
       }
       return true;
     } catch (e) {
-      print('Error clearing onboarding data: $e');
+      if (kDebugMode) {
+        print('Error clearing onboarding data: $e');
+      }
       return false;
     }
   }
