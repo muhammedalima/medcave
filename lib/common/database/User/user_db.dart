@@ -1,7 +1,10 @@
+import 'dart:async';
+
 import 'package:cloud_firestore/cloud_firestore.dart';
 import 'package:firebase_auth/firebase_auth.dart';
 import 'package:flutter/foundation.dart';
 import 'package:shared_preferences/shared_preferences.dart';
+import 'package:flutter/material.dart';
 
 class OnboardingData {
   final String? name;
@@ -28,6 +31,12 @@ class OnboardingData {
 }
 
 class OnboardingService {
+  // Create a stream controller to notify about profile updates
+  static final _profileUpdateController = StreamController<void>.broadcast();
+  
+  // Stream that UI can listen to for profile updates
+  static Stream<void> get profileUpdates => _profileUpdateController.stream;
+
   // Save onboarding data to Firestore
   static Future<bool> saveOnboardingData(
     OnboardingData data,
@@ -67,6 +76,9 @@ class OnboardingService {
         // Store onboarding completion flag in shared preferences
         final prefs = await SharedPreferences.getInstance();
         await prefs.setBool('hasSeenOnboarding', true);
+        
+        // Notify listeners that profile has been updated
+        _profileUpdateController.add(null);
 
         return true;
       }
@@ -74,6 +86,30 @@ class OnboardingService {
     } catch (e) {
       if (kDebugMode) {
         print('Error saving onboarding data: $e');
+      }
+      return false;
+    }
+  }
+
+  // Update user profile data
+  static Future<bool> updateProfile(Map<String, dynamic> updatedData) async {
+    try {
+      final user = FirebaseAuth.instance.currentUser;
+      if (user != null) {
+        // Add updated timestamp
+        updatedData['updatedAt'] = FieldValue.serverTimestamp();
+        
+        await FirebaseFirestore.instance.collection('users').doc(user.uid).update(updatedData);
+        
+        // Notify listeners that profile has been updated
+        _profileUpdateController.add(null);
+        
+        return true;
+      }
+      return false;
+    } catch (e) {
+      if (kDebugMode) {
+        print('Error updating profile data: $e');
       }
       return false;
     }
@@ -104,6 +140,9 @@ class OnboardingService {
         await FirebaseFirestore.instance.collection('users').doc(user.uid).update({
           'hasCompletedOnboarding': false,
         });
+        
+        // Notify listeners that profile has been updated
+        _profileUpdateController.add(null);
       }
       return true;
     } catch (e) {
@@ -112,5 +151,33 @@ class OnboardingService {
       }
       return false;
     }
+  }
+  
+  // Dispose the controller when no longer needed (call this in your app's dispose method)
+  static void dispose() {
+    _profileUpdateController.close();
+  }
+}
+
+// Mixin that can be added to profile-related screens for automatic refresh
+mixin ProfileRefreshMixin<T extends StatefulWidget> on State<T> {
+  late StreamSubscription _profileSubscription;
+  
+  @override
+  void initState() {
+    super.initState();
+    _profileSubscription = OnboardingService.profileUpdates.listen((_) {
+      // Refresh the profile data when updates occur
+      refreshProfileData();
+    });
+  }
+  
+  // This method should be implemented in classes using this mixin
+  void refreshProfileData();
+  
+  @override
+  void dispose() {
+    _profileSubscription.cancel();
+    super.dispose();
   }
 }

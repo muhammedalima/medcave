@@ -48,6 +48,9 @@ dependencies:
   google_sign_in:
   cloud_firestore: ^5.6.1
   gif:
+  flutter_local_notifications:
+  intl:
+  timezone:
   google_generative_ai:
   google_maps_flutter:
   geolocator:
