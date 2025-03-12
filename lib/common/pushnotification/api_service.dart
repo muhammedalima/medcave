@@ -5,8 +5,8 @@ import 'package:firebase_auth/firebase_auth.dart';
 import 'package:shared_preferences/shared_preferences.dart';
 
 class ApiService {
-  // Default value - will be updated with the actual server URL
-  static String baseUrl = 'http://192.168.0.1:3000';
+  // Updated default value to your server URL
+  static String baseUrl = 'https://medcave-server.onrender.com';
 
   // Initialize the API service by retrieving the server URL
   static Future<void> initialize() async {
@@ -26,7 +26,7 @@ class ApiService {
               .get(
                 Uri.parse('$baseUrl/api/server-info'),
               )
-              .timeout(const Duration(seconds: 5));
+              .timeout(const Duration(seconds: 10)); // Increased timeout for Render
 
           if (response.statusCode == 200) {
             if (kDebugMode) {
@@ -36,10 +36,15 @@ class ApiService {
         } catch (e) {
           if (kDebugMode) {
             print('Warning: Cannot connect to saved server URL: $e');
+            print('Reverting to default server URL: https://medcave-server.onrender.com');
           }
-          // Don't throw - just log the warning
+          // If connection fails, revert to default server URL
+          baseUrl = 'https://medcave-server.onrender.com';
+          await prefs.setString('server_url', baseUrl);
         }
       } else {
+        // Save the default URL if none was saved before
+        await prefs.setString('server_url', baseUrl);
         if (kDebugMode) {
           print('No saved server URL found, using default: $baseUrl');
         }
@@ -49,7 +54,7 @@ class ApiService {
         print('Error in ApiService initialization: $e');
       }
       // Use default URL as fallback
-      baseUrl = 'http://192.168.0.1:3000';
+      baseUrl = 'https://medcave-server.onrender.com';
     }
   }
 
@@ -79,14 +84,21 @@ class ApiService {
   // Get server info to verify connection and update configuration
   Future<Map<String, dynamic>> getServerInfo() async {
     try {
+      if (kDebugMode) {
+        print('Fetching server info from: $baseUrl/api/server-info');
+      }
+      
       final response = await http
           .get(
             Uri.parse('$baseUrl/api/server-info'),
           )
-          .timeout(const Duration(seconds: 10));
+          .timeout(const Duration(seconds: 15)); // Increased timeout for Render
 
       if (response.statusCode == 200) {
         final Map<String, dynamic> data = jsonDecode(response.body);
+        if (kDebugMode) {
+          print('Server info received: $data');
+        }
 
         // Update the base URL if it's different
         if (data.containsKey('url')) {
@@ -95,6 +107,10 @@ class ApiService {
 
         return data;
       } else {
+        if (kDebugMode) {
+          print('Server returned status code: ${response.statusCode}');
+          print('Response body: ${response.body}');
+        }
         throw Exception('Failed to get server info: ${response.statusCode}');
       }
     } catch (e) {
@@ -107,6 +123,11 @@ class ApiService {
 
   Future<void> notifyDrivers(String requestId) async {
     try {
+      if (kDebugMode) {
+        print('Notifying drivers for request: $requestId');
+        print('Using server URL: $baseUrl');
+      }
+      
       final user = FirebaseAuth.instance.currentUser;
       if (user == null) throw Exception('User not authenticated');
 
@@ -118,10 +139,14 @@ class ApiService {
           'Authorization': 'Bearer $token',
         },
         body: jsonEncode({'requestId': requestId}),
-      );
+      ).timeout(const Duration(seconds: 30)); // Increased timeout for Render
 
       if (response.statusCode != 200) {
         throw Exception('Failed to notify drivers: ${response.body}');
+      }
+      
+      if (kDebugMode) {
+        print('Drivers notified successfully');
       }
     } catch (e) {
       if (kDebugMode) {
@@ -142,7 +167,7 @@ class ApiService {
         headers: {
           'Authorization': 'Bearer $token',
         },
-      );
+      ).timeout(const Duration(seconds: 15)); // Increased timeout for Render
 
       if (response.statusCode == 200) {
         return jsonDecode(response.body);
@@ -159,6 +184,10 @@ class ApiService {
 
   Future<void> expandRadius(String requestId) async {
     try {
+      if (kDebugMode) {
+        print('Expanding radius for request: $requestId');
+      }
+      
       final user = FirebaseAuth.instance.currentUser;
       if (user == null) throw Exception('User not authenticated');
 
@@ -168,10 +197,14 @@ class ApiService {
         headers: {
           'Authorization': 'Bearer $token',
         },
-      );
+      ).timeout(const Duration(seconds: 15)); // Increased timeout for Render
 
       if (response.statusCode != 200) {
         throw Exception('Failed to expand radius: ${response.body}');
+      }
+      
+      if (kDebugMode) {
+        print('Radius expanded successfully');
       }
     } catch (e) {
       if (kDebugMode) {

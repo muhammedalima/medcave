@@ -495,7 +495,9 @@ class _MedicalHistoryTabState extends State<MedicalHistoryTab> {
       if (kDebugMode) {
         print('Saving record with data:');
         recordData.forEach((key, value) {
-          print('$key: $value');
+          if (kDebugMode) {
+            print('$key: $value');
+          }
         });
       }
       
@@ -552,7 +554,9 @@ class _MedicalHistoryTabState extends State<MedicalHistoryTab> {
             final data = doc.data() as Map<String, dynamic>;
             print('Document ID: ${doc.id}');
             data.forEach((key, value) {
-              print('$key: $value');
+              if (kDebugMode) {
+                print('$key: $value');
+              }
             });
             print('---------------');
           }

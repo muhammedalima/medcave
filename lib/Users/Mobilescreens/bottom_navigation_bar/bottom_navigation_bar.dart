@@ -81,7 +81,6 @@ class _CustomNavigationBarState extends State<CustomNavigationBar> {
     if (_isAmbulanceDriver) {
       _widgetOptions = const <Widget>[
         HomePage(),
-        HospitalPage(),
         AmbulanceDriverWrapper(),
         ProfilePage(),
       ];
@@ -90,10 +89,6 @@ class _CustomNavigationBarState extends State<CustomNavigationBar> {
         GButton(
           icon: Octicons.home,
           text: 'Home',
-        ),
-        GButton(
-          icon: FontAwesome.plus_squared_alt,
-          text: 'Hospital',
         ),
         GButton(
           icon: FontAwesome.ambulance,
@@ -108,7 +103,6 @@ class _CustomNavigationBarState extends State<CustomNavigationBar> {
       // Non-ambulance driver - hide ambulance tab
       _widgetOptions = const <Widget>[
         HomePage(),
-        HospitalPage(),
         ProfilePage(),
       ];
 
@@ -116,10 +110,6 @@ class _CustomNavigationBarState extends State<CustomNavigationBar> {
         GButton(
           icon: Octicons.home,
           text: 'Home',
-        ),
-        GButton(
-          icon: FontAwesome.plus_squared_alt,
-          text: 'Hospital',
         ),
         GButton(
           icon: Icons.person_2_outlined,
