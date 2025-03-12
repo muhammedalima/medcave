@@ -12,7 +12,7 @@ class Adminauthwrapper extends StatefulWidget {
 
 class _AuthWrapperState extends State<Adminauthwrapper> {
   late final Stream<User?> _authStream;
-  
+
   @override
   void initState() {
     super.initState();
@@ -27,7 +27,7 @@ class _AuthWrapperState extends State<Adminauthwrapper> {
         if (snapshot.hasData) {
           return const Adminhome();
         }
-        return const Adminlogin();
+        return const AdminLoginPage();
       },
     );
   }
