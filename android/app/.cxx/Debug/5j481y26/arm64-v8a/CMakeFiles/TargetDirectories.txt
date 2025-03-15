@@ -1,0 +1,2 @@
+/home/user/medcave/android/app/.cxx/Debug/5j481y26/arm64-v8a/CMakeFiles/edit_cache.dir
+/home/user/medcave/android/app/.cxx/Debug/5j481y26/arm64-v8a/CMakeFiles/rebuild_cache.dir

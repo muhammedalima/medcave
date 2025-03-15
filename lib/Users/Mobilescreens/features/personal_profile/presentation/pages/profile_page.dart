@@ -2,10 +2,10 @@ import 'package:flutter/foundation.dart';
 import 'package:flutter/material.dart';
 import 'package:cloud_firestore/cloud_firestore.dart';
 import 'package:firebase_auth/firebase_auth.dart';
-import 'package:medcave/Users/Mobilescreens/features/personal_profile/presentation/editprofile_patient.dart';
+import 'package:medcave/Users/Mobilescreens/features/personal_profile/widget/custom_tab.dart';
 import 'package:medcave/Users/Mobilescreens/features/personal_profile/widget/medical_history.dart';
 import 'package:medcave/Users/Mobilescreens/features/personal_profile/widget/medications_tab.dart';
-
+import 'package:medcave/Users/Mobilescreens/features/personal_profile/widget/profile_header.dart';
 
 mixin ProfileRefreshMixin {
   void refreshProfileData();
@@ -18,36 +18,68 @@ class ProfilePage extends StatefulWidget {
   State<ProfilePage> createState() => _ProfilePageState();
 }
 
-class _ProfilePageState extends State<ProfilePage> with SingleTickerProviderStateMixin, ProfileRefreshMixin {
-  late TabController _tabController;
+class _ProfilePageState extends State<ProfilePage> with ProfileRefreshMixin {
+  int _selectedTabIndex = 0;
   final FirebaseFirestore _firestore = FirebaseFirestore.instance;
   final String userId = FirebaseAuth.instance.currentUser?.uid ?? '';
   bool isLoading = true;
   Map<String, dynamic>? userData;
+  final ScrollController _scrollController = ScrollController();
+  final GlobalKey _headerKey = GlobalKey();
+  bool _isTabBarSticky = false;
+  double _headerHeight = 0;
 
   @override
   void initState() {
     super.initState();
-    _tabController = TabController(length: 2, vsync: this);
     _loadUserData();
-  }
 
-  @override
-  void refreshProfileData() {
-    // This is called whenever profile is updated elsewhere
-    _loadUserData();
+    _scrollController.addListener(_updateTabBarState);
+
+    // Measure the header height after build
+    WidgetsBinding.instance.addPostFrameCallback((_) {
+      _measureHeaderHeight();
+    });
   }
 
   @override
   void dispose() {
-    _tabController.dispose();
+    _scrollController.removeListener(_updateTabBarState);
+    _scrollController.dispose();
     super.dispose();
+  }
+
+  // Measures the header height to know when to make the tabs sticky
+  void _measureHeaderHeight() {
+    final RenderBox? headerBox =
+        _headerKey.currentContext?.findRenderObject() as RenderBox?;
+    if (headerBox != null) {
+      setState(() {
+        _headerHeight = headerBox.size.height;
+      });
+    }
+  }
+
+  // Updates the tab bar sticky state based on scroll position
+  void _updateTabBarState() {
+    final isTabBarSticky = _scrollController.offset >= _headerHeight;
+    if (isTabBarSticky != _isTabBarSticky) {
+      setState(() {
+        _isTabBarSticky = isTabBarSticky;
+      });
+    }
+  }
+
+  @override
+  void refreshProfileData() {
+    _loadUserData();
   }
 
   Future<void> _loadUserData() async {
     try {
       if (userId.isNotEmpty) {
-        final docSnapshot = await _firestore.collection('users').doc(userId).get();
+        final docSnapshot =
+            await _firestore.collection('users').doc(userId).get();
         if (docSnapshot.exists) {
           setState(() {
             userData = docSnapshot.data();
@@ -72,6 +104,12 @@ class _ProfilePageState extends State<ProfilePage> with SingleTickerProviderStat
     }
   }
 
+  void _handleTabSelection(int index) {
+    setState(() {
+      _selectedTabIndex = index;
+    });
+  }
+
   @override
   Widget build(BuildContext context) {
     if (isLoading) {
@@ -84,102 +122,59 @@ class _ProfilePageState extends State<ProfilePage> with SingleTickerProviderStat
 
     return Scaffold(
       body: SafeArea(
-        child: SingleChildScrollView(
-          child: Column(
-            children: [
-              // Profile Header
-              Padding(
-                padding: const EdgeInsets.all(16.0),
-                child: Column(
-                  children: [
-                    // Profile Picture and Basic Info
-                    Row(
-                      mainAxisAlignment: MainAxisAlignment.center,
-                      children: [
-                        Column(
-                          crossAxisAlignment: CrossAxisAlignment.center,
-                          children: [
-                            CircleAvatar(
-                              radius: 40,
-                              backgroundImage: NetworkImage(
-                                'https://via.placeholder.com/80',
-                              ),
-                            ),
-                            const SizedBox(height: 8),
-                            Text(
-                              userData?['name'] ?? 'Nandana',
-                              style: const TextStyle(
-                                fontSize: 20,
-                                fontWeight: FontWeight.bold,
-                              ),
-                            ),
-                            Text(
-                              '${userData?['age'] ?? '21'} year old - ${userData?['gender'] ?? 'female'} - ${userData?['phoneNumber'] ?? '+912345678932'}',
-                              style: TextStyle(
-                                fontSize: 14,
-                                color: Colors.grey[600],
-                              ),
-                            ),
-                          ],
-                        ),
-                      ],
+        child: Stack(
+          children: [
+            // Main scrollable content
+            CustomScrollView(
+              controller: _scrollController,
+              slivers: [
+                // Header section
+                SliverToBoxAdapter(
+                  child: Container(
+                    key: _headerKey,
+                    child: ProfileHeaderWidget(
+                      userData: userData,
+                      onProfileUpdated: refreshProfileData,
                     ),
-                    
-                    const SizedBox(height: 16),
-                    
-                    // Edit Profile Button
-                    SizedBox(
-                      width: double.infinity,
-                      child: OutlinedButton(
-                        onPressed: () {
-                           Navigator.push(
-    context,
-    MaterialPageRoute(builder: (context) => ProfileEdit()),
-    );
-  
+                  ),
+                ),
 
-                        },
-                        style: OutlinedButton.styleFrom(
-                          shape: RoundedRectangleBorder(
-                            borderRadius: BorderRadius.circular(30),
-                          ),
-                          side: const BorderSide(color: Colors.grey),
+                // Spacer for the tab bar when it becomes sticky
+                SliverToBoxAdapter(
+                  child: _isTabBarSticky
+                      ? SizedBox(
+                          height:
+                              50) // Adjust this height to match your CustomTabBar height
+                      : CustomTabBar(
+                          selectedIndex: _selectedTabIndex,
+                          onTabSelected: _handleTabSelection,
                         ),
-                        child: const Text('Edit User Profile'),
-                      ),
-                    ),
-                  ],
+                ),
+
+                // Content based on selected tab
+                SliverFillRemaining(
+                  child: _selectedTabIndex == 0
+                      ? MedicationsTab(userId: userId)
+                      : MedicalHistoryTab(userId: userId),
+                ),
+              ],
+            ),
+
+            // Sticky tab bar that appears when scrolled
+            if (_isTabBarSticky)
+              Positioned(
+                top: 0,
+                left: 0,
+                right: 0,
+                child: Container(
+                  color: Theme.of(context).scaffoldBackgroundColor,
+                  child: CustomTabBar(
+                    selectedIndex: _selectedTabIndex,
+                    onTabSelected: _handleTabSelection,
+                  ),
                 ),
               ),
-              
-              // Tabs for Medications and Medical History
-              TabBar(
-                controller: _tabController,
-                tabs: const [
-                  Tab(text: 'Medications'),
-                  Tab(text: 'Medical-History'),
-                ],
-                labelColor: Colors.black,
-                unselectedLabelColor: Colors.grey,
-                indicatorColor: Colors.black,
-              ),
-              
-              // Tab Content
-              SizedBox(
-                height: 600, // Fixed height for tab content
-                child: TabBarView(
-                  controller: _tabController,
-                  children: [
-                    // Medications Tab
-                    MedicationsTab(userId: userId),
-                    
-                    // Medical History Tab
-                    MedicalHistoryTab(userId: userId),
-                  ],
-                ),
-              ),
-            ],
-          ),
+          ],
         ),
       ),
     );

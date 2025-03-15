@@ -2,7 +2,6 @@ import 'package:flutter/material.dart';
 import 'package:firebase_auth/firebase_auth.dart';
 import 'package:cloud_firestore/cloud_firestore.dart';
 import 'package:medcave/Users/AdminWeb/Starting_screen/auth/register/adminregister.dart';
-import 'package:medcave/Users/AdminWeb/home/presentation/adminhome.dart';
 
 class AdminLoginPage extends StatefulWidget {
   const AdminLoginPage({Key? key}) : super(key: key);
@@ -56,8 +55,8 @@ class _AdminLoginPageState extends State<AdminLoginPage> {
         if (adminDoc.exists) {
           // User is confirmed as admin, navigate to admin dashboard
           if (!mounted) return;
-          Navigator.pushReplacement(context,
-              MaterialPageRoute(builder: (context) => const Adminhome()));
+          // Navigator.pushReplacement(context,
+          //     MaterialPageRoute(builder: (context) => const AdminDashboard()));
         } else {
           // User exists but is not an admin
           await FirebaseAuth.instance.signOut();

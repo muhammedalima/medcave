@@ -1,8 +1,6 @@
 import 'package:firebase_auth/firebase_auth.dart';
 import 'package:flutter/material.dart';
 import 'package:medcave/Users/AdminWeb/Starting_screen/auth/login/adminlogin.dart';
-import 'package:medcave/Users/AdminWeb/home/presentation/adminhome.dart';
-
 class Adminauthwrapper extends StatefulWidget {
   const Adminauthwrapper({super.key});
 
@@ -25,7 +23,7 @@ class _AuthWrapperState extends State<Adminauthwrapper> {
       stream: _authStream,
       builder: (context, snapshot) {
         if (snapshot.hasData) {
-          return const Adminhome();
+          // return const AdminDashboard();
         }
         return const AdminLoginPage();
       },

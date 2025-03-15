@@ -7,40 +7,22 @@ import 'package:shared_preferences/shared_preferences.dart';
 class ApiService {
   // Updated default value to your server URL
   static String baseUrl = 'https://medcave-server.onrender.com';
+  static bool _isInitialized = false;
 
   // Initialize the API service by retrieving the server URL
   static Future<void> initialize() async {
     try {
+      // If already initialized, return immediately
+      if (_isInitialized) return;
+      
       final prefs = await SharedPreferences.getInstance();
       final savedUrl = prefs.getString('server_url');
 
+      // Always use the saved URL first if available, without testing connection
       if (savedUrl != null && savedUrl.isNotEmpty) {
         baseUrl = savedUrl;
         if (kDebugMode) {
           print('Using saved server URL: $baseUrl');
-        }
-
-        // Test connection to server URL
-        try {
-          final response = await http
-              .get(
-                Uri.parse('$baseUrl/api/server-info'),
-              )
-              .timeout(const Duration(seconds: 10)); // Increased timeout for Render
-
-          if (response.statusCode == 200) {
-            if (kDebugMode) {
-              print('Connection to server successful');
-            }
-          }
-        } catch (e) {
-          if (kDebugMode) {
-            print('Warning: Cannot connect to saved server URL: $e');
-            print('Reverting to default server URL: https://medcave-server.onrender.com');
-          }
-          // If connection fails, revert to default server URL
-          baseUrl = 'https://medcave-server.onrender.com';
-          await prefs.setString('server_url', baseUrl);
         }
       } else {
         // Save the default URL if none was saved before
@@ -49,12 +31,50 @@ class ApiService {
           print('No saved server URL found, using default: $baseUrl');
         }
       }
+      
+      // Mark as initialized even if the connection test fails
+      _isInitialized = true;
+      
+      // Test connection in the background without blocking initialization
+      _testConnection();
     } catch (e) {
       if (kDebugMode) {
         print('Error in ApiService initialization: $e');
       }
-      // Use default URL as fallback
+      // Use default URL as fallback and mark as initialized
       baseUrl = 'https://medcave-server.onrender.com';
+      _isInitialized = true;
+    }
+  }
+  
+  // Test connection without blocking initialization
+  static Future<void> _testConnection() async {
+    try {
+      if (kDebugMode) {
+        print('Testing connection to server URL: $baseUrl');
+      }
+      
+      // Attempt to connect with a longer timeout
+      final response = await http
+          .get(
+            Uri.parse('$baseUrl/api/server-info'),
+          )
+          .timeout(const Duration(seconds: 20)); // Longer timeout for Render
+
+      if (response.statusCode == 200) {
+        if (kDebugMode) {
+          print('Connection to server successful');
+        }
+      } else {
+        if (kDebugMode) {
+          print('Server returned error status: ${response.statusCode}');
+        }
+      }
+    } catch (e) {
+      if (kDebugMode) {
+        print('Warning: Cannot connect to server URL: $e');
+        // Don't revert to default URL automatically, just log the warning
+      }
     }
   }
 
@@ -92,7 +112,7 @@ class ApiService {
           .get(
             Uri.parse('$baseUrl/api/server-info'),
           )
-          .timeout(const Duration(seconds: 15)); // Increased timeout for Render
+          .timeout(const Duration(seconds: 30)); // Increased timeout for Render
 
       if (response.statusCode == 200) {
         final Map<String, dynamic> data = jsonDecode(response.body);
@@ -167,7 +187,7 @@ class ApiService {
         headers: {
           'Authorization': 'Bearer $token',
         },
-      ).timeout(const Duration(seconds: 15)); // Increased timeout for Render
+      ).timeout(const Duration(seconds: 30)); // Increased timeout for Render
 
       if (response.statusCode == 200) {
         return jsonDecode(response.body);
@@ -197,7 +217,7 @@ class ApiService {
         headers: {
           'Authorization': 'Bearer $token',
         },
-      ).timeout(const Duration(seconds: 15)); // Increased timeout for Render
+      ).timeout(const Duration(seconds: 30)); // Increased timeout for Render
 
       if (response.statusCode != 200) {
         throw Exception('Failed to expand radius: ${response.body}');

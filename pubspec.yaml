@@ -68,6 +68,8 @@ dependencies:
       path: workmanager
       ref: main
   flutter_local_notifications:
+  image_picker:
+  firebase_storage:
 
 dev_dependencies:
   flutter_test:

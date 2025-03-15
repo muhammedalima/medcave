@@ -27,7 +27,12 @@ class _ProfileEditState extends State<ProfileEdit> {
   bool _isAmbulanceDriver = false;
 
   // Gender options
-  final List<String> _genderOptions = ['Male', 'Female', 'Other', 'Prefer not to say'];
+  final List<String> _genderOptions = [
+    'Male',
+    'Female',
+    'Other',
+    'Prefer not to say'
+  ];
 
   @override
   void initState() {
@@ -73,48 +78,48 @@ class _ProfileEditState extends State<ProfileEdit> {
     }
   }
 
-Future<void> _saveProfile() async {
-  if (!_formKey.currentState!.validate()) {
-    return;
-  }
-
-  setState(() {
-    _isLoading = true;
-  });
-
-  try {
-    // Create a map with updated data
-    Map<String, dynamic> userData = {
-      'name': _name,
-      'phoneNumber': _phoneNumber,
-      'age': _age,
-      'gender': _gender,
-      'isAmbulanceDriver': _isAmbulanceDriver,
-    };
-
-    // Use the service to update the profile
-    bool success = await OnboardingService.updateProfile(userData);
-
-    if (success) {
-      ScaffoldMessenger.of(context).showSnackBar(
-        const SnackBar(content: Text('Profile updated successfully')),
-      );
-      
-      // Return with result to force profile page refresh
-      Navigator.pop(context, true);
-    } else {
-      throw Exception("Failed to update profile");
+  Future<void> _saveProfile() async {
+    if (!_formKey.currentState!.validate()) {
+      return;
     }
-  } catch (e) {
-    ScaffoldMessenger.of(context).showSnackBar(
-      SnackBar(content: Text('Error updating profile: $e')),
-    );
-  } finally {
+
     setState(() {
-      _isLoading = false;
+      _isLoading = true;
     });
+
+    try {
+      // Create a map with updated data
+      Map<String, dynamic> userData = {
+        'name': _name,
+        'phoneNumber': _phoneNumber,
+        'age': _age,
+        'gender': _gender,
+        'isAmbulanceDriver': _isAmbulanceDriver,
+      };
+
+      // Use the service to update the profile
+      bool success = await OnboardingService.updateProfile(userData);
+
+      if (success) {
+        ScaffoldMessenger.of(context).showSnackBar(
+          const SnackBar(content: Text('Profile updated successfully')),
+        );
+
+        // Return with result to force profile page refresh
+        Navigator.pop(context, true);
+      } else {
+        throw Exception("Failed to update profile");
+      }
+    } catch (e) {
+      ScaffoldMessenger.of(context).showSnackBar(
+        SnackBar(content: Text('Error updating profile: $e')),
+      );
+    } finally {
+      setState(() {
+        _isLoading = false;
+      });
+    }
   }
-}
 
   void _discardChanges() {
     // Show confirmation dialog
@@ -159,18 +164,6 @@ Future<void> _saveProfile() async {
                 child: Column(
                   crossAxisAlignment: CrossAxisAlignment.start,
                   children: [
-                    // Profile section title
-                    Padding(
-                      padding: const EdgeInsets.only(bottom: 20),
-                      child: Text(
-                        'Edit Profile',
-                        style: TextStyle(
-                          fontSize: 24,
-                          fontWeight: FontWeight.bold,
-                        ),
-                      ),
-                    ),
-
                     // Name Field
                     FormLabelText(text: "Full Name"),
                     SizedBox(height: 8),
@@ -262,7 +255,8 @@ Future<void> _saveProfile() async {
                         color: Colors.grey[100],
                         borderRadius: BorderRadius.circular(8),
                       ),
-                      padding: EdgeInsets.symmetric(horizontal: 16, vertical: 4),
+                      padding:
+                          EdgeInsets.symmetric(horizontal: 16, vertical: 4),
                       child: DropdownButtonFormField<String>(
                         value: _gender.isNotEmpty ? _gender : null,
                         decoration: InputDecoration(

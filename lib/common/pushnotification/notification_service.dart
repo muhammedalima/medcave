@@ -20,6 +20,9 @@ class NotificationService {
   factory NotificationService() => _instance;
   NotificationService._internal();
 
+  // Flag to track initialization status
+  bool _isInitialized = false;
+
   final FirebaseMessaging _firebaseMessaging = FirebaseMessaging.instance;
   final FlutterLocalNotificationsPlugin _flutterLocalNotificationsPlugin =
       FlutterLocalNotificationsPlugin();
@@ -35,42 +38,78 @@ class NotificationService {
   );
 
   Future<void> initialize() async {
-    // Request permission for iOS
-    NotificationSettings settings = await _firebaseMessaging.requestPermission(
-      alert: true,
-      announcement: false,
-      badge: true,
-      carPlay: false,
-      criticalAlert: false,
-      provisional: false,
-      sound: true,
-    );
-
-    if (kDebugMode) {
-      print('User granted permission: ${settings.authorizationStatus}');
+    // Prevent double initialization
+    if (_isInitialized) {
+      if (kDebugMode) {
+        print('NotificationService already initialized, skipping...');
+      }
+      return;
     }
 
-    // Configure Firebase Messaging
-    FirebaseMessaging.onBackgroundMessage(_firebaseMessagingBackgroundHandler);
-
-    // Initialize local notifications
-    const AndroidInitializationSettings initializationSettingsAndroid =
-        AndroidInitializationSettings('@mipmap/ic_launcher');
-    const DarwinInitializationSettings initializationSettingsIOS =
-        DarwinInitializationSettings();
-    const InitializationSettings initializationSettings =
-        InitializationSettings(
-      android: initializationSettingsAndroid,
-      iOS: initializationSettingsIOS,
-    );
-
-    await _flutterLocalNotificationsPlugin.initialize(
-      initializationSettings,
-      onDidReceiveNotificationResponse: _onDidReceiveNotificationResponse,
-    );
-
-    // Create notification channel for Android - FIXED SYNTAX HERE
     try {
+      // Request permission for iOS
+      NotificationSettings settings = await _firebaseMessaging.requestPermission(
+        alert: true,
+        announcement: false,
+        badge: true,
+        carPlay: false,
+        criticalAlert: false,
+        provisional: false,
+        sound: true,
+      );
+
+      if (kDebugMode) {
+        print('User granted permission: ${settings.authorizationStatus}');
+      }
+
+      // Initialize local notifications
+      await _initializeLocalNotifications();
+      
+      // Start FCM token handling in background
+      _saveFcmTokenInBackground();
+
+      // Handle foreground messages
+      FirebaseMessaging.onMessage.listen(_handleForegroundMessage);
+
+      // Handle message opened app
+      FirebaseMessaging.onMessageOpenedApp.listen(_handleMessageOpenedApp);
+
+      // Check for initial message (app opened from terminated state)
+      _checkInitialMessage();
+      
+      // Mark as initialized
+      _isInitialized = true;
+      
+      if (kDebugMode) {
+        print('NotificationService initialized successfully');
+      }
+    } catch (e) {
+      if (kDebugMode) {
+        print('Error initializing NotificationService: $e');
+      }
+      // Don't mark as initialized on error so we can retry later
+    }
+  }
+
+  // Initialize local notifications separately
+  Future<void> _initializeLocalNotifications() async {
+    try {
+      const AndroidInitializationSettings initializationSettingsAndroid =
+          AndroidInitializationSettings('@mipmap/ic_launcher');
+      const DarwinInitializationSettings initializationSettingsIOS =
+          DarwinInitializationSettings();
+      const InitializationSettings initializationSettings =
+          InitializationSettings(
+        android: initializationSettingsAndroid,
+        iOS: initializationSettingsIOS,
+      );
+
+      await _flutterLocalNotificationsPlugin.initialize(
+        initializationSettings,
+        onDidReceiveNotificationResponse: _onDidReceiveNotificationResponse,
+      );
+
+      // Create notification channel for Android
       AndroidFlutterLocalNotificationsPlugin? androidImplementation = 
           _flutterLocalNotificationsPlugin
               .resolvePlatformSpecificImplementation<AndroidFlutterLocalNotificationsPlugin>();
@@ -80,32 +119,54 @@ class NotificationService {
         if (kDebugMode) {
           print("Notification channel created successfully");
         }
-      } else {
+      } else if (!kIsWeb && defaultTargetPlatform == TargetPlatform.android) {
+        // Only report as an issue if we're on Android
         if (kDebugMode) {
-          print("Android implementation not available, skipping channel creation");
+          print("Warning: Android implementation not available even though we're on Android");
         }
       }
     } catch (e) {
       if (kDebugMode) {
-        print("Error creating notification channel: $e");
+        print("Error initializing local notifications: $e");
       }
+      // Don't rethrow - we want to continue even if notifications fail
     }
+  }
 
-    // Get and save FCM token with improved error handling
-    await _saveFcmTokenWithErrorHandling();
+  // Check initial message in background
+  void _checkInitialMessage() {
+    // Don't block initialization on this
+    FirebaseMessaging.instance.getInitialMessage().then((RemoteMessage? initialMessage) {
+      if (initialMessage != null) {
+        _handleInitialMessage(initialMessage);
+      }
+    }).catchError((e) {
+      if (kDebugMode) {
+        print("Error getting initial message: $e");
+      }
+    });
+  }
 
-    // Handle foreground messages
-    FirebaseMessaging.onMessage.listen(_handleForegroundMessage);
+  // Save FCM token in the background to avoid blocking the UI
+  void _saveFcmTokenInBackground() {
+    // Fire and forget - don't await
+    _saveFcmTokenWithErrorHandling().then((_) {
+      if (kDebugMode) {
+        print("FCM token handling completed in background");
+      }
+    }).catchError((e) {
+      if (kDebugMode) {
+        print("Error in background FCM token handling: $e");
+      }
+    });
 
-    // Handle message opened app
-    FirebaseMessaging.onMessageOpenedApp.listen(_handleMessageOpenedApp);
-
-    // Check for initial message (app opened from terminated state)
-    RemoteMessage? initialMessage =
-        await FirebaseMessaging.instance.getInitialMessage();
-    if (initialMessage != null) {
-      _handleInitialMessage(initialMessage);
-    }
+    // Setup token refresh listener
+    _firebaseMessaging.onTokenRefresh.listen((newToken) {
+      if (kDebugMode) {
+        print('FCM token refreshed: $newToken');
+      }
+      _saveFcmTokenWithErrorHandling();
+    });
   }
 
   Future<void> _saveFcmTokenWithErrorHandling() async {
@@ -113,8 +174,11 @@ class NotificationService {
       if (kDebugMode) {
         print("Attempting to get FCM token...");
       }
-      String? token;
 
+      // Wait to ensure Firebase is fully initialized
+      await Future.delayed(const Duration(milliseconds: 500));
+
+      String? token;
       try {
         token = await _firebaseMessaging.getToken();
         if (kDebugMode) {
@@ -125,7 +189,7 @@ class NotificationService {
           print("Error getting FCM token: $tokenError");
         }
         // Wait and try again after a short delay
-        await Future.delayed(Duration(seconds: 2));
+        await Future.delayed(const Duration(seconds: 2));
         try {
           token = await _firebaseMessaging.getToken();
           if (kDebugMode) {
@@ -154,6 +218,10 @@ class NotificationService {
       final user = FirebaseAuth.instance.currentUser;
       if (user != null) {
         try {
+          // Save FCM token in shared preferences first (as a backup)
+          final prefs = await SharedPreferences.getInstance();
+          await prefs.setString('fcm_token', token);
+          
           // Try to update the driver document
           await FirebaseFirestore.instance
               .collection('drivers')
@@ -169,7 +237,7 @@ class NotificationService {
           });
 
           if (kDebugMode) {
-            print('FCM Token updated: $token');
+            print('FCM Token updated in Firestore: $token');
           }
         } catch (e) {
           // If document doesn't exist, create it
@@ -183,41 +251,51 @@ class NotificationService {
             final lat = prefs.getDouble('last_latitude') ?? 37.4221;
             final lng = prefs.getDouble('last_longitude') ?? -122.0841;
 
-            await FirebaseFirestore.instance
-                .collection('drivers')
-                .doc(user.uid)
-                .set({
-              'fcmToken': token,
-              'isDriverActive': true,
-              'userId': user.uid,
-              'email': user.email,
-              'displayName': user.displayName ?? 'Driver',
-              'phoneNumber': user.phoneNumber,
-              'location': {
-                'latitude': lat,
-                'longitude': lng,
+            try {
+              await FirebaseFirestore.instance
+                  .collection('drivers')
+                  .doc(user.uid)
+                  .set({
+                'fcmToken': token,
+                'isDriverActive': true,
+                'userId': user.uid,
+                'email': user.email,
+                'displayName': user.displayName ?? 'Driver',
+                'phoneNumber': user.phoneNumber,
+                'location': {
+                  'latitude': lat,
+                  'longitude': lng,
+                  'updatedAt': FieldValue.serverTimestamp(),
+                },
+                'deviceInfo': {
+                  'platform': kIsWeb ? 'web' : defaultTargetPlatform.toString(),
+                  'updatedAt': FieldValue.serverTimestamp(),
+                },
+                'createdAt': FieldValue.serverTimestamp(),
                 'updatedAt': FieldValue.serverTimestamp(),
-              },
-              'deviceInfo': {
-                'platform': kIsWeb ? 'web' : defaultTargetPlatform.toString(),
-                'updatedAt': FieldValue.serverTimestamp(),
-              },
-              'createdAt': FieldValue.serverTimestamp(),
-              'updatedAt': FieldValue.serverTimestamp(),
-            });
+              });
 
-            if (kDebugMode) {
-              print('Created new driver document with FCM token: $token');
+              if (kDebugMode) {
+                print('Created new driver document with FCM token: $token');
+              }
+            } catch (innerError) {
+              if (kDebugMode) {
+                print('Error creating driver document: $innerError');
+              }
             }
           } else {
             if (kDebugMode) {
-              print('Error saving FCM token: $e');
+              print('Error saving FCM token to Firestore: $e');
             }
           }
         }
       } else {
         if (kDebugMode) {
-          print('Cannot save FCM token: User not logged in');
+          print('Cannot save FCM token to Firestore: User not logged in');
+          
+          // Save token to shared preferences anyway for later use
+          final prefs = await SharedPreferences.getInstance();
+          await prefs.setString('fcm_token', token);
         }
       }
     } catch (e) {
@@ -225,115 +303,125 @@ class NotificationService {
         print('Error in _saveFcmTokenWithErrorHandling: $e');
       }
     }
-
-    // Setup token refresh listener
-    _firebaseMessaging.onTokenRefresh.listen((newToken) {
-      if (kDebugMode) {
-        print('FCM token refreshed: $newToken');
-      }
-      _saveFcmTokenWithErrorHandling();
-    });
   }
 
   Future<void> _handleForegroundMessage(RemoteMessage message) async {
-    if (kDebugMode) {
-      print('Got a message whilst in the foreground!');
-      print('Message data: ${message.data}');
-    }
+    try {
+      if (kDebugMode) {
+        print('Got a message whilst in the foreground!');
+        print('Message data: ${message.data}');
+      }
 
-    // Check if message contains server URL and update if needed
-    if (message.data.containsKey('serverUrl')) {
-      ApiService.updateServerUrlFromNotification(message.data);
-    }
+      // Check if message contains server URL and update if needed
+      if (message.data.containsKey('serverUrl')) {
+        ApiService.updateServerUrlFromNotification(message.data);
+      }
 
-    // For ambulance requests, show a notification with action buttons
-    if (message.data.containsKey('requestId') && message.data['type'] == 'ambulance_request') {
-      final String requestId = message.data['requestId'];
+      // For ambulance requests, show a notification with action buttons
+      if (message.data.containsKey('requestId') && message.data['type'] == 'ambulance_request') {
+        final String requestId = message.data['requestId'];
 
-      // Create action buttons for Android
-      final List<AndroidNotificationAction> actions = [
-        const AndroidNotificationAction(
-          'accept_action',
-          'Accept',
-          showsUserInterface: true,
-          cancelNotification: true,
-        ),
-        const AndroidNotificationAction(
-          'reject_action',
-          'Reject',
-          showsUserInterface: true,
-          cancelNotification: true,
-        ),
-      ];
+        // Create action buttons for Android
+        final List<AndroidNotificationAction> actions = [
+          const AndroidNotificationAction(
+            'accept_action',
+            'Accept',
+            showsUserInterface: true,
+            cancelNotification: true,
+          ),
+          const AndroidNotificationAction(
+            'reject_action',
+            'Reject',
+            showsUserInterface: true,
+            cancelNotification: true,
+          ),
+        ];
 
-      // Create the Android notification details with actions
-      final AndroidNotificationDetails androidPlatformChannelSpecifics =
-          AndroidNotificationDetails(
-        'ambulance_requests',
-        'Ambulance Requests',
-        channelDescription: 'Notifications for new ambulance requests',
-        importance: Importance.max,
-        priority: Priority.high,
-        showWhen: true,
-        actions: actions,
-      );
+        // Create the Android notification details with actions
+        final AndroidNotificationDetails androidPlatformChannelSpecifics =
+            AndroidNotificationDetails(
+          'ambulance_requests',
+          'Ambulance Requests',
+          channelDescription: 'Notifications for new ambulance requests',
+          importance: Importance.max,
+          priority: Priority.high,
+          showWhen: true,
+          actions: actions,
+        );
 
-      // Use standard iOS notification details
-      const DarwinNotificationDetails iOSPlatformChannelSpecifics =
-          DarwinNotificationDetails();
+        // Use standard iOS notification details
+        const DarwinNotificationDetails iOSPlatformChannelSpecifics =
+            DarwinNotificationDetails();
 
-      final NotificationDetails platformChannelSpecifics = NotificationDetails(
-        android: androidPlatformChannelSpecifics,
-        iOS: iOSPlatformChannelSpecifics,
-      );
+        final NotificationDetails platformChannelSpecifics = NotificationDetails(
+          android: androidPlatformChannelSpecifics,
+          iOS: iOSPlatformChannelSpecifics,
+        );
 
-      // Show the notification with action buttons
-      await _flutterLocalNotificationsPlugin.show(
-        requestId.hashCode, // Use requestId hash as notification ID to avoid duplicates
-        message.notification?.title ?? 'New Ambulance Request',
-        message.notification?.body ?? 'You have a new ambulance request',
-        platformChannelSpecifics,
-        payload: jsonEncode({
-          ...message.data,
-          'navigation': 'ambulance_detail',
-        }),
-      );
-    } else if (message.notification != null) {
-      // For other notifications, show standard notification
-      await _showNotification(
-        message.notification!.title ?? 'New Notification',
-        message.notification!.body ?? 'You have a new message',
-        message.data,
-      );
+        // Show the notification with action buttons
+        await _flutterLocalNotificationsPlugin.show(
+          requestId.hashCode, // Use requestId hash as notification ID to avoid duplicates
+          message.notification?.title ?? 'New Ambulance Request',
+          message.notification?.body ?? 'You have a new ambulance request',
+          platformChannelSpecifics,
+          payload: jsonEncode({
+            ...message.data,
+            'navigation': 'ambulance_detail',
+          }),
+        );
+      } else if (message.notification != null) {
+        // For other notifications, show standard notification
+        await _showNotification(
+          message.notification!.title ?? 'New Notification',
+          message.notification!.body ?? 'You have a new message',
+          message.data,
+        );
+      }
+    } catch (e) {
+      if (kDebugMode) {
+        print('Error handling foreground message: $e');
+      }
     }
   }
 
   void _handleMessageOpenedApp(RemoteMessage message) {
-    if (kDebugMode) {
-      print('Message opened app: ${message.data}');
-    }
+    try {
+      if (kDebugMode) {
+        print('Message opened app: ${message.data}');
+      }
 
-    // Update server URL if it's included in the notification
-    if (message.data.containsKey('serverUrl')) {
-      ApiService.updateServerUrlFromNotification(message.data);
-    }
+      // Update server URL if it's included in the notification
+      if (message.data.containsKey('serverUrl')) {
+        ApiService.updateServerUrlFromNotification(message.data);
+      }
 
-    // Handle navigation based on the notification data
-    _handleNotificationNavigation(message.data);
+      // Handle navigation based on the notification data
+      _handleNotificationNavigation(message.data);
+    } catch (e) {
+      if (kDebugMode) {
+        print('Error handling message opened app: $e');
+      }
+    }
   }
 
   void _handleInitialMessage(RemoteMessage message) {
-    if (kDebugMode) {
-      print('App opened from terminated state with message: ${message.data}');
-    }
+    try {
+      if (kDebugMode) {
+        print('App opened from terminated state with message: ${message.data}');
+      }
 
-    // Update server URL if it's included in the notification
-    if (message.data.containsKey('serverUrl')) {
-      ApiService.updateServerUrlFromNotification(message.data);
-    }
+      // Update server URL if it's included in the notification
+      if (message.data.containsKey('serverUrl')) {
+        ApiService.updateServerUrlFromNotification(message.data);
+      }
 
-    // Handle navigation based on the notification data
-    _handleNotificationNavigation(message.data);
+      // Handle navigation based on the notification data
+      _handleNotificationNavigation(message.data);
+    } catch (e) {
+      if (kDebugMode) {
+        print('Error handling initial message: $e');
+      }
+    }
   }
 
   Future<void> _showNotification(
@@ -388,7 +476,15 @@ class NotificationService {
         print('Action ID: ${notificationResponse.actionId}');
       }
       
-      final Map<String, dynamic> data = jsonDecode(payload);
+      Map<String, dynamic> data;
+      try {
+        data = jsonDecode(payload);
+      } catch (e) {
+        if (kDebugMode) {
+          print('Error decoding notification payload: $e');
+        }
+        return;
+      }
       
       // Update server URL if included
       if (data.containsKey('serverUrl')) {
@@ -426,45 +522,64 @@ class NotificationService {
         return;
       }
       
-      // Get current location
+      // Get current location with error handling
       Position position;
       try {
         position = await Geolocator.getCurrentPosition(
-          desiredAccuracy: LocationAccuracy.high
+          desiredAccuracy: LocationAccuracy.high,
+          timeLimit: const Duration(seconds: 5)
         );
       } catch (e) {
         if (kDebugMode) {
-          print('Error getting location: $e');
+          print('Error getting location: $e, using default');
         }
-        return;
+        // Use default location if we can't get the current one
+        position = Position(
+          latitude: 0,
+          longitude: 0,
+          timestamp: DateTime.now(),
+          accuracy: 0,
+          altitude: 0,
+          heading: 0,
+          speed: 0,
+          speedAccuracy: 0,
+          altitudeAccuracy: 0,
+          headingAccuracy: 0
+        );
       }
       
       // Update the request status in Firestore
-      await FirebaseFirestore.instance
-          .collection('ambulanceRequests')
-          .doc(requestId)
-          .update({
-        'status': 'accepted',
-        'assignedDriverId': currentUser.uid,
-        'driverName': currentUser.displayName ?? 'Current Driver', 
-        'acceptedTime': Timestamp.now(),
-        'estimatedArrivalTime': '10 minutes', // This should be calculated
-        'startingLocation': {
-          'latitude': position.latitude,
-          'longitude': position.longitude,
-          'heading': position.heading,
-          'speed': position.speed,
-          'accuracy': position.accuracy,
-          'timestamp': FieldValue.serverTimestamp(),
+      try {
+        await FirebaseFirestore.instance
+            .collection('ambulanceRequests')
+            .doc(requestId)
+            .update({
+          'status': 'accepted',
+          'assignedDriverId': currentUser.uid,
+          'driverName': currentUser.displayName ?? 'Current Driver', 
+          'acceptedTime': Timestamp.now(),
+          'estimatedArrivalTime': '10 minutes', // This should be calculated
+          'startingLocation': {
+            'latitude': position.latitude,
+            'longitude': position.longitude,
+            'heading': position.heading,
+            'speed': position.speed,
+            'accuracy': position.accuracy,
+            'timestamp': FieldValue.serverTimestamp(),
+          }
+        });
+        
+        if (kDebugMode) {
+          print('Request accepted successfully: $requestId');
         }
-      });
-      
-      if (kDebugMode) {
-        print('Request accepted successfully: $requestId');
+        
+        // Navigate to the driver wrapper screen
+        _navigateToDriverWrapper();
+      } catch (e) {
+        if (kDebugMode) {
+          print('Error updating Firestore for accepted request: $e');
+        }
       }
-      
-      // Navigate to the driver wrapper screen
-      _navigateToDriverWrapper();
     } catch (e) {
       if (kDebugMode) {
         print('Error accepting request from notification: $e');
@@ -488,16 +603,22 @@ class NotificationService {
       }
       
       // Update Firestore
-      await FirebaseFirestore.instance
-          .collection('ambulanceRequests')
-          .doc(requestId)
-          .update({
-        'status': 'available', // Reset to available for other drivers
-        'rejectedBy': FieldValue.arrayUnion([currentUser.uid]), // Track who rejected
-      });
-      
-      if (kDebugMode) {
-        print('Request rejected: $requestId');
+      try {
+        await FirebaseFirestore.instance
+            .collection('ambulanceRequests')
+            .doc(requestId)
+            .update({
+          'status': 'available', // Reset to available for other drivers
+          'rejectedBy': FieldValue.arrayUnion([currentUser.uid]), // Track who rejected
+        });
+        
+        if (kDebugMode) {
+          print('Request rejected: $requestId');
+        }
+      } catch (e) {
+        if (kDebugMode) {
+          print('Error updating Firestore for rejected request: $e');
+        }
       }
     } catch (e) {
       if (kDebugMode) {
@@ -508,28 +629,40 @@ class NotificationService {
 
   // Navigate to driver wrapper after accepting a request
   void _navigateToDriverWrapper() {
-    if (navigatorKey.currentState != null) {
-      navigatorKey.currentState!.push(
-        MaterialPageRoute(
-          builder: (context) => const AmbulanceDriverWrapper(),
-        ),
-      );
-    } else {
+    try {
+      if (navigatorKey.currentState != null) {
+        navigatorKey.currentState!.push(
+          MaterialPageRoute(
+            builder: (context) => const AmbulanceDriverWrapper(),
+          ),
+        );
+      } else {
+        if (kDebugMode) {
+          print('Navigator key is null, cannot navigate');
+        }
+      }
+    } catch (e) {
       if (kDebugMode) {
-        print('Navigator key is null, cannot navigate');
+        print('Error navigating to driver wrapper: $e');
       }
     }
   }
 
   void _handleNotificationNavigation(Map<String, dynamic> data) {
-    if (data.containsKey('requestId') && 
-        (data.containsKey('type') && data['type'] == 'ambulance_request' || 
-         data.containsKey('navigation') && data['navigation'] == 'ambulance_detail')) {
-      
-      final String requestId = data['requestId'];
-      
-      // Fetch complete data for the request
-      _fetchRequestDataAndNavigate(requestId);
+    try {
+      if (data.containsKey('requestId') && 
+          (data.containsKey('type') && data['type'] == 'ambulance_request' || 
+           data.containsKey('navigation') && data['navigation'] == 'ambulance_detail')) {
+        
+        final String requestId = data['requestId'];
+        
+        // Fetch complete data for the request
+        _fetchRequestDataAndNavigate(requestId);
+      }
+    } catch (e) {
+      if (kDebugMode) {
+        print('Error handling notification navigation: $e');
+      }
     }
   }
 
@@ -583,29 +716,38 @@ class NotificationService {
 
 @pragma('vm:entry-point')
 Future<void> _firebaseMessagingBackgroundHandler(RemoteMessage message) async {
-  await Firebase.initializeApp();
-  if (kDebugMode) {
-    print('Handling a background message: ${message.messageId}');
-    print('Background message data: ${message.data}');
-  }
+  try {
+    // Initialize Firebase if not already initialized
+    await Firebase.initializeApp();
+    
+    if (kDebugMode) {
+      print('Handling a background message: ${message.messageId}');
+      print('Background message data: ${message.data}');
+    }
 
-  // Check for server URL in the notification and save it
-  if (message.data.containsKey('serverUrl')) {
-    final String serverUrl = message.data['serverUrl'];
-    if (serverUrl.isNotEmpty) {
-      try {
-        // We can't directly use ApiService here because it might not be initialized
-        // So we'll just use SharedPreferences directly
-        final prefs = await SharedPreferences.getInstance();
-        await prefs.setString('server_url', serverUrl);
-        if (kDebugMode) {
-          print('Saved server URL from background message: $serverUrl');
-        }
-      } catch (e) {
-        if (kDebugMode) {
-          print('Error saving server URL in background handler: $e');
+    // Check for server URL in the notification and save it
+    if (message.data.containsKey('serverUrl')) {
+      final String serverUrl = message.data['serverUrl'];
+      if (serverUrl.isNotEmpty) {
+        try {
+          // We can't directly use ApiService here because it might not be initialized
+          // So we'll just use SharedPreferences directly
+          final prefs = await SharedPreferences.getInstance();
+          await prefs.setString('server_url', serverUrl);
+          if (kDebugMode) {
+            print('Saved server URL from background message: $serverUrl');
+          }
+        } catch (e) {
+          if (kDebugMode) {
+            print('Error saving server URL in background handler: $e');
+          }
         }
       }
     }
+  } catch (e) {
+    if (kDebugMode) {
+      print('Error in background message handler: $e');
+    }
+    // Don't rethrow - this would crash the app in the background
   }
 }

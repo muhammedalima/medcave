@@ -3,7 +3,6 @@ import 'package:flutter/material.dart';
 import 'package:firebase_auth/firebase_auth.dart';
 import 'package:cloud_firestore/cloud_firestore.dart';
 import 'package:medcave/Users/AdminWeb/Starting_screen/auth/login/adminlogin.dart';
-import 'package:medcave/Users/AdminWeb/home/presentation/adminhome.dart';
 
 class AdminRegistrationPage extends StatefulWidget {
   const AdminRegistrationPage({Key? key}) : super(key: key);
@@ -156,10 +155,10 @@ class _AdminRegistrationPageState extends State<AdminRegistrationPage> {
           ),
         );
         
-        Navigator.pushReplacement(
-            context,
-            MaterialPageRoute(
-                builder: (context) => const Adminhome()));
+        // Navigator.pushReplacement(
+        //     context,
+        //     MaterialPageRoute(
+        //         builder: (context) => const AdminDashboard()));
       }
     } on FirebaseAuthException catch (e) {
       String message = 'Registration failed';
