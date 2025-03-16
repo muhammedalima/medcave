@@ -2,6 +2,7 @@ import 'package:flutter/material.dart';
 import 'package:google_maps_flutter/google_maps_flutter.dart';
 import 'package:geolocator/geolocator.dart';
 import 'package:geocoding/geocoding.dart';
+import 'package:medcave/Users/Mobilescreens/commonWidget/customnavbar.dart';
 
 class LocationService {
   static Future<LocationPermission> checkAndRequestPermission() async {
@@ -81,31 +82,7 @@ class _MapPickerState extends State<MapPicker> {
   @override
   Widget build(BuildContext context) {
     return Scaffold(
-      appBar: AppBar(
-        backgroundColor: Colors.white,
-        elevation: 0,
-        leading: IconButton(
-          icon: const Icon(Icons.arrow_back, color: Colors.black),
-          onPressed: () => Navigator.pop(context),
-        ),
-        title: const Text(
-          'Choose Location',
-          style: TextStyle(color: Colors.black),
-        ),
-        actions: [
-          if (_selectedLocation != null)
-            TextButton(
-              onPressed: () => Navigator.pop(context, _selectedLocation),
-              child: const Text(
-                'Confirm',
-                style: TextStyle(
-                  color: Colors.black,
-                  fontWeight: FontWeight.bold,
-                ),
-              ),
-            ),
-        ],
-      ),
+      appBar: CustomAppBar(onPressed: () => Navigator.pop(context)),
       body: _selectedLocation == null
           ? const Center(child: CircularProgressIndicator())
           : GoogleMap(

@@ -1,4 +1,5 @@
 import 'package:flutter/material.dart';
+import 'package:medcave/config/colors/appcolor.dart';
 
 class InputFieldContainer extends StatelessWidget {
   final Widget child;
@@ -12,7 +13,7 @@ class InputFieldContainer extends StatelessWidget {
   Widget build(BuildContext context) {
     return Container(
       decoration: BoxDecoration(
-        color: const Color(0xFFF3F4F6),
+        color: AppColor.backgroundWhite,
         borderRadius: BorderRadius.circular(12),
       ),
       padding: const EdgeInsets.symmetric(

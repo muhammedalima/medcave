@@ -26,43 +26,51 @@ class _ProfilePageState extends State<ProfilePage> with ProfileRefreshMixin {
   Map<String, dynamic>? userData;
   final ScrollController _scrollController = ScrollController();
   final GlobalKey _headerKey = GlobalKey();
+  final GlobalKey _tabBarKey = GlobalKey();
   bool _isTabBarSticky = false;
   double _headerHeight = 0;
+  double _tabBarHeight = 0;
 
   @override
   void initState() {
     super.initState();
     _loadUserData();
 
-    _scrollController.addListener(_updateTabBarState);
+    _scrollController.addListener(_updateStickyState);
 
-    // Measure the header height after build
+    // Measure the header and tab bar heights after build
     WidgetsBinding.instance.addPostFrameCallback((_) {
-      _measureHeaderHeight();
+      _measureHeights();
     });
   }
 
   @override
   void dispose() {
-    _scrollController.removeListener(_updateTabBarState);
+    _scrollController.removeListener(_updateStickyState);
     _scrollController.dispose();
     super.dispose();
   }
 
-  // Measures the header height to know when to make the tabs sticky
-  void _measureHeaderHeight() {
+  // Measures the header and tab bar heights
+  void _measureHeights() {
     final RenderBox? headerBox =
         _headerKey.currentContext?.findRenderObject() as RenderBox?;
-    if (headerBox != null) {
+    final RenderBox? tabBarBox =
+        _tabBarKey.currentContext?.findRenderObject() as RenderBox?;
+
+    if (headerBox != null && tabBarBox != null) {
       setState(() {
         _headerHeight = headerBox.size.height;
+        _tabBarHeight = tabBarBox.size.height;
       });
     }
   }
 
-  // Updates the tab bar sticky state based on scroll position
-  void _updateTabBarState() {
+  // Updates the sticky state based on scroll position
+  void _updateStickyState() {
+    // Tab becomes sticky when the scroll position reaches the tab bar
     final isTabBarSticky = _scrollController.offset >= _headerHeight;
+
     if (isTabBarSticky != _isTabBarSticky) {
       setState(() {
         _isTabBarSticky = isTabBarSticky;
@@ -122,61 +130,84 @@ class _ProfilePageState extends State<ProfilePage> with ProfileRefreshMixin {
 
     return Scaffold(
       body: SafeArea(
-        child: Stack(
-          children: [
-            // Main scrollable content
-            CustomScrollView(
-              controller: _scrollController,
-              slivers: [
-                // Header section
-                SliverToBoxAdapter(
-                  child: Container(
-                    key: _headerKey,
-                    child: ProfileHeaderWidget(
-                      userData: userData,
-                      onProfileUpdated: refreshProfileData,
-                    ),
-                  ),
-                ),
-
-                // Spacer for the tab bar when it becomes sticky
-                SliverToBoxAdapter(
-                  child: _isTabBarSticky
-                      ? SizedBox(
-                          height:
-                              50) // Adjust this height to match your CustomTabBar height
-                      : CustomTabBar(
-                          selectedIndex: _selectedTabIndex,
-                          onTabSelected: _handleTabSelection,
-                        ),
-                ),
-
-                // Content based on selected tab
-                SliverFillRemaining(
-                  child: _selectedTabIndex == 0
-                      ? MedicationsTab(userId: userId)
-                      : MedicalHistoryTab(userId: userId),
-                ),
-              ],
-            ),
-
-            // Sticky tab bar that appears when scrolled
-            if (_isTabBarSticky)
-              Positioned(
-                top: 0,
-                left: 0,
-                right: 0,
+        child: NestedScrollView(
+          controller: _scrollController,
+          headerSliverBuilder: (context, innerBoxIsScrolled) {
+            return [
+              // Header section
+              SliverToBoxAdapter(
                 child: Container(
-                  color: Theme.of(context).scaffoldBackgroundColor,
-                  child: CustomTabBar(
-                    selectedIndex: _selectedTabIndex,
-                    onTabSelected: _handleTabSelection,
+                  key: _headerKey,
+                  child: ProfileHeaderWidget(
+                    userData: userData,
+                    onProfileUpdated: refreshProfileData,
                   ),
                 ),
               ),
-          ],
+
+              // Tab bar that will be part of the scrolling
+              SliverPersistentHeader(
+                delegate: _StickyTabBarDelegate(
+                  child: Container(
+                    key: _tabBarKey,
+                    child: CustomTabBar(
+                      selectedIndex: _selectedTabIndex,
+                      onTabSelected: _handleTabSelection,
+                    ),
+                  ),
+                  // This makes the tab bar stick to the top when it reaches there
+                  minHeight: _tabBarHeight > 0 ? _tabBarHeight : 50,
+                  maxHeight: _tabBarHeight > 0 ? _tabBarHeight : 50,
+                ),
+                pinned: true, // This is what makes it stick when scrolled
+              ),
+            ];
+          },
+          // Main content that will scroll beneath the sticky tab bar
+          body: IndexedStack(
+            index: _selectedTabIndex,
+            children: [
+              MedicationsTab(userId: userId),
+              MedicalHistoryTab(userId: userId),
+            ],
+          ),
         ),
       ),
     );
+  }
+}
+
+// Custom delegate for the sticky tab bar
+class _StickyTabBarDelegate extends SliverPersistentHeaderDelegate {
+  final Widget child;
+  final double minHeight;
+  final double maxHeight;
+
+  _StickyTabBarDelegate({
+    required this.child,
+    required this.minHeight,
+    required this.maxHeight,
+  });
+
+  @override
+  Widget build(
+      BuildContext context, double shrinkOffset, bool overlapsContent) {
+    return Container(
+      color: Theme.of(context).scaffoldBackgroundColor,
+      child: child,
+    );
+  }
+
+  @override
+  double get minExtent => minHeight;
+
+  @override
+  double get maxExtent => maxHeight;
+
+  @override
+  bool shouldRebuild(_StickyTabBarDelegate oldDelegate) {
+    return oldDelegate.minHeight != minHeight ||
+        oldDelegate.maxHeight != maxHeight ||
+        oldDelegate.child != child;
   }
 }

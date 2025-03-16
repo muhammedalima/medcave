@@ -1,5 +1,6 @@
 import 'package:flutter/material.dart';
-import 'package:medcave/common/database/User/reminder/reminder_db.dart';
+import 'package:medcave/common/database/model/User/reminder/reminder_db.dart';
+import 'package:medcave/config/colors/appcolor.dart';
 
 class ReminderTimeSection extends StatelessWidget {
   final ReminderModel reminderData;
@@ -173,6 +174,8 @@ class ReminderTimeSection extends StatelessWidget {
     return GestureDetector(
       onTap: () => _showEditDialog(context, type),
       child: Container(
+        padding: EdgeInsets.all(4),
+        color: AppColor.backgroundWhite,
         margin: const EdgeInsets.only(right: 16),
         child: Row(
           mainAxisSize: MainAxisSize.min,

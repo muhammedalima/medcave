@@ -6,7 +6,7 @@ import 'package:intl/intl.dart';
 import 'package:medcave/Users/Mobilescreens/bottom_navigation_bar/bottom_navigation_bar.dart';
 import 'package:medcave/Users/Mobilescreens/commonWidget/customnavbar.dart';
 import 'package:medcave/Users/Mobilescreens/features/ambulance_tracking/presentation/pages/user/details_ambulanceuser.dart';
-import 'package:medcave/common/database/Ambulancerequest/ambulance_request_db.dart';
+import 'package:medcave/common/database/model/Ambulancerequest/ambulance_request_db.dart';
 
 class AmbulanceRequestList extends StatefulWidget {
   const AmbulanceRequestList({super.key});

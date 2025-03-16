@@ -3,6 +3,8 @@ import 'package:flutter/foundation.dart';
 import 'package:flutter/material.dart';
 import 'package:cloud_firestore/cloud_firestore.dart';
 import 'package:geolocator/geolocator.dart';
+import 'package:medcave/Users/Mobilescreens/commonWidget/customnavbar.dart';
+import 'package:medcave/config/colors/appcolor.dart';
 import 'package:url_launcher/url_launcher.dart';
 
 class AmbulanceDetailDriver extends StatelessWidget {
@@ -49,20 +51,8 @@ class AmbulanceDetailDriver extends StatelessWidget {
 
     return Scaffold(
       backgroundColor: Colors.white,
-      appBar: AppBar(
-        backgroundColor: Colors.transparent,
-        elevation: 0,
-        leading: IconButton(
-          icon: Container(
-            padding: const EdgeInsets.all(8),
-            decoration: BoxDecoration(
-              color: Colors.grey[200],
-              shape: BoxShape.circle,
-            ),
-            child: const Icon(Icons.arrow_back, color: Colors.black),
-          ),
-          onPressed: () => Navigator.pop(context),
-        ),
+      appBar: CustomAppBar(
+        onPressed: () => Navigator.pop(context),
       ),
       body: SingleChildScrollView(
         child: Padding(
@@ -344,8 +334,7 @@ class AmbulanceDetailDriver extends StatelessWidget {
                     child: ElevatedButton(
                       onPressed: () => _handleAccept(context),
                       style: ElevatedButton.styleFrom(
-                        backgroundColor:
-                            const Color(0xFFFEE16F), // Light amber color
+                        backgroundColor: AppColor.primaryGreen,
                         foregroundColor: Colors.black,
                         elevation: 0,
                         shape: RoundedRectangleBorder(

@@ -5,7 +5,7 @@ import 'package:medcave/Users/Mobilescreens/Starting_Screen/OnBoarding/widget/fo
 import 'package:medcave/Users/Mobilescreens/Starting_Screen/OnBoarding/widget/onboardinginput.dart';
 import 'package:medcave/Users/Mobilescreens/Starting_Screen/OnBoarding/widget/selectableButtton.dart';
 import 'package:medcave/Users/Mobilescreens/commonWidget/customnavbar.dart';
-import 'package:medcave/common/database/User/driver_db.dart';
+import 'package:medcave/common/database/model/User/driver_db.dart';
 import 'package:firebase_auth/firebase_auth.dart';
 
 class DriverProfileEdit extends StatefulWidget {

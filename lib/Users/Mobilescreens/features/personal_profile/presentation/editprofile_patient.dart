@@ -6,7 +6,7 @@ import 'package:cloud_firestore/cloud_firestore.dart';
 import 'package:medcave/Users/Mobilescreens/Starting_Screen/OnBoarding/widget/formlabel.dart';
 import 'package:medcave/Users/Mobilescreens/Starting_Screen/OnBoarding/widget/onboardinginput.dart';
 import 'package:medcave/Users/Mobilescreens/commonWidget/customnavbar.dart';
-import 'package:medcave/common/database/User/user_db.dart';
+import 'package:medcave/common/database/model/User/user_db.dart';
 
 class ProfileEdit extends StatefulWidget {
   const ProfileEdit({super.key});

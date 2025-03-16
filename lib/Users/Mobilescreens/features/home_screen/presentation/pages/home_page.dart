@@ -2,12 +2,14 @@
 
 import 'package:flutter/foundation.dart';
 import 'package:flutter/material.dart';
+import 'package:medcave/Users/Mobilescreens/commonWidget/quotewidget.dart';
 import 'package:medcave/Users/Mobilescreens/features/ambulance_tracking/presentation/pages/user/ambulance_status.dart';
 import 'package:medcave/Users/Mobilescreens/features/ambulance_tracking/presentation/pages/user/ambulance_user_page.dart';
 import 'package:medcave/Users/Mobilescreens/features/ambulance_tracking/presentation/pages/user/list_ambulancerequest.dart';
 import 'package:medcave/Users/Mobilescreens/features/home_screen/widget/ShowCamerScreen.dart';
 import 'package:medcave/Users/Mobilescreens/features/home_screen/widget/botton_arrow.dart';
 import 'package:medcave/Users/Mobilescreens/features/home_screen/widget/buttonambulanceserach.dart';
+import 'package:medcave/Users/Mobilescreens/features/home_screen/widget/home_app_bar.dart';
 import 'package:medcave/config/colors/appcolor.dart';
 import 'package:cloud_firestore/cloud_firestore.dart';
 import 'package:firebase_auth/firebase_auth.dart';
@@ -24,11 +26,49 @@ class _HomePageState extends State<HomePage> {
   Map<String, dynamic>? _latestRequestData;
   bool _isLoading = true;
   String? _latestRequestId;
+  String _userName = "User"; // Default user name
 
   @override
   void initState() {
     super.initState();
     _checkForActiveRequest();
+    _fetchUserName();
+  }
+
+  // Fetch the user name from Firestore
+  Future<void> _fetchUserName() async {
+    try {
+      final user = FirebaseAuth.instance.currentUser;
+      if (user != null) {
+        final userData = await FirebaseFirestore.instance
+            .collection('users')
+            .doc(user.uid)
+            .get();
+
+        if (userData.exists) {
+          final data = userData.data();
+          if (data != null &&
+              data.containsKey('name') &&
+              data['name'] is String) {
+            setState(() {
+              _userName = data['name'];
+            });
+          } else if (user.displayName != null && user.displayName!.isNotEmpty) {
+            setState(() {
+              _userName = user.displayName!;
+            });
+          }
+        } else if (user.displayName != null && user.displayName!.isNotEmpty) {
+          setState(() {
+            _userName = user.displayName!;
+          });
+        }
+      }
+    } catch (e) {
+      if (kDebugMode) {
+        print('Error fetching user name: $e');
+      }
+    }
   }
 
   // Check for active ambulance requests
@@ -41,15 +81,18 @@ class _HomePageState extends State<HomePage> {
         });
         return;
       }
-      
+
       final QuerySnapshot snapshot = await FirebaseFirestore.instance
           .collection('ambulanceRequests')
           .where('userId', isEqualTo: user.uid)
-          .where('status', whereIn: ['pending', 'accepted']) // Only check for active requests
+          .where('status', whereIn: [
+            'pending',
+            'accepted'
+          ]) // Only check for active requests
           .orderBy('timestamp', descending: true)
           .limit(1)
           .get();
-      
+
       if (snapshot.docs.isNotEmpty) {
         final doc = snapshot.docs.first;
         setState(() {
@@ -80,7 +123,8 @@ class _HomePageState extends State<HomePage> {
       Navigator.push(
         context,
         MaterialPageRoute(
-          builder: (context) => AmbulanceStatusPage(requestId: _latestRequestId!),
+          builder: (context) =>
+              AmbulanceStatusPage(requestId: _latestRequestId!),
         ),
       );
     } else {
@@ -97,9 +141,9 @@ class _HomePageState extends State<HomePage> {
   @override
   Widget build(BuildContext context) {
     return Scaffold(
-      backgroundColor: AppColor.backgroundGrey,
-      appBar: AppBar(
-        backgroundColor: AppColor.backgroundGrey,
+      appBar: HomeAppBar(
+        userName: _userName,
+        backgroundColor: AppColor.secondaryBackgroundWhite,
       ),
       body: _isLoading
           ? const Center(child: CircularProgressIndicator())
@@ -129,10 +173,12 @@ class _HomePageState extends State<HomePage> {
                             crossAxisAlignment: CrossAxisAlignment.start,
                             children: [
                               const Row(
-                                mainAxisAlignment: MainAxisAlignment.spaceBetween,
+                                mainAxisAlignment:
+                                    MainAxisAlignment.spaceBetween,
                                 children: [
                                   Column(
-                                    crossAxisAlignment: CrossAxisAlignment.start,
+                                    crossAxisAlignment:
+                                        CrossAxisAlignment.start,
                                     children: [
                                       Text(
                                         'Hey, Get',
@@ -152,13 +198,12 @@ class _HomePageState extends State<HomePage> {
                                   ),
                                   // Determine where the button should navigate based on active request
                                   Buttonarrrowicon(
-                                    destination:  AmbulanceRequestList()
-                                  ),
+                                      destination: AmbulanceRequestList()),
                                 ],
                               ),
                               const SizedBox(height: 8),
                               Text(
-                                _latestRequestData != null 
+                                _latestRequestData != null
                                     ? 'Active request in progress'
                                     : 'Search with AI magic!',
                                 style: const TextStyle(
@@ -225,6 +270,9 @@ class _HomePageState extends State<HomePage> {
                             ),
                           ),
                         ),
+                      ),
+                      WaveyMessage(
+                        message: 'Your Health \n Our Care',
                       ),
                     ],
                   ),

@@ -7,10 +7,12 @@ class CustomAppBar extends StatelessWidget implements PreferredSizeWidget {
   final Color backgroundColor;
   final IconData? rightIcon;
   final VoidCallback? onRightPressed;
+  final String? customTitle;
 
   const CustomAppBar({
     super.key,
-    required this.icon,
+    this.customTitle,
+    this.icon = Icons.arrow_back,
     required this.onPressed,
     this.backgroundColor = Colors.transparent,
     this.rightIcon,
@@ -22,15 +24,18 @@ class CustomAppBar extends StatelessWidget implements PreferredSizeWidget {
     return Padding(
       padding: const EdgeInsets.only(top: 16.0, left: 16.0, right: 16.0),
       child: AppBar(
+        title: customTitle != null ? Text(customTitle!) : null,
         backgroundColor: backgroundColor,
         elevation: 0,
         leading: Padding(
           padding: const EdgeInsets.all(0.0),
           child: CircleAvatar(
+            radius: 32,
             backgroundColor: AppColor.navigationBackColor,
             child: IconButton(
               icon: Icon(
                 icon,
+                size: 32,
                 color: const Color(0xff666666),
               ),
               onPressed: onPressed,
@@ -42,12 +47,13 @@ class CustomAppBar extends StatelessWidget implements PreferredSizeWidget {
                 Padding(
                   padding: const EdgeInsets.all(0.0),
                   child: CircleAvatar(
-                    
+                    radius: 32,
                     backgroundColor: AppColor.navigationBackColor,
                     child: IconButton(
                       icon: Icon(
                         rightIcon,
                         color: const Color(0xff666666),
+                        size: 32,
                       ),
                       onPressed: onRightPressed,
                     ),

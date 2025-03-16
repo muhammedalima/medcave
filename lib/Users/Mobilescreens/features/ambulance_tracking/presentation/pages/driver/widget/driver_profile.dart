@@ -1,6 +1,6 @@
 import 'package:flutter/material.dart';
 import 'package:medcave/Users/Mobilescreens/features/ambulance_tracking/presentation/pages/driver/editprofiledriver.dart';
-import 'package:medcave/common/database/User/driver_db.dart';
+import 'package:medcave/common/database/model/User/driver_db.dart';
 import 'package:medcave/config/colors/appcolor.dart';
 
 class AmbulanceDriverProfile extends StatefulWidget {

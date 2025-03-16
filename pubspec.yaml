@@ -49,6 +49,7 @@ dependencies:
   cloud_firestore: ^5.6.1
   gif:
   intl:
+  uuid:
   timezone:
   google_generative_ai:
   google_maps_flutter:
@@ -70,7 +71,15 @@ dependencies:
   flutter_local_notifications:
   image_picker:
   firebase_storage:
+  flutter_launcher_icons: ^0.14.3
 
+flutter_icons:
+    android: true
+    ios: true
+    image_path: "assets/icon/app_icon.png" # Change this to your icon's path
+    adaptive_icon_background: "#ffffff" # Background color for adaptive icons (Android)
+    adaptive_icon_foreground: "assets/icon/app_icon_foreground.png" # Foreground for adaptive icons (Android)
+    
 dev_dependencies:
   flutter_test:
     sdk: flutter
@@ -116,3 +125,4 @@ flutter:
        
   # For details regarding fonts from package dependencies,
   # see https://flutter.dev/custom-fonts/#from-packages
+  

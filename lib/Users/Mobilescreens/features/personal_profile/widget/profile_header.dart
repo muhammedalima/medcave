@@ -1,6 +1,8 @@
 // lib/Users/Mobilescreens/features/personal_profile/widget/profile_header_widget.dart
 
 import 'package:flutter/material.dart';
+import 'package:firebase_auth/firebase_auth.dart';
+import 'package:medcave/Users/Mobilescreens/Starting_Screen/auth/authwrapper.dart';
 import 'package:medcave/Users/Mobilescreens/features/personal_profile/presentation/editprofile_patient.dart';
 
 class ProfileHeaderWidget extends StatelessWidget {
@@ -12,6 +14,91 @@ class ProfileHeaderWidget extends StatelessWidget {
     required this.userData,
     required this.onProfileUpdated,
   }) : super(key: key);
+
+  // Get a consistent color based on the user's name
+  Color _getProfileColor(String name) {
+    if (name.isEmpty) return Colors.blue;
+
+    // List of pleasant colors for avatars
+    final List<Color> colors = [
+      Colors.blue,
+      Colors.red,
+      Colors.green,
+      Colors.purple,
+      Colors.orange,
+      Colors.teal,
+      Colors.pink,
+      Colors.indigo,
+      Colors.amber,
+      Colors.cyan,
+    ];
+
+    // Generate a consistent index based on the name
+    int colorIndex = 0;
+    for (int i = 0; i < name.length; i++) {
+      colorIndex += name.codeUnitAt(i);
+    }
+
+    // Ensure the index is within the range of available colors
+    return colors[colorIndex % colors.length];
+  }
+
+  // Sign out function
+  Future<void> _signOut(BuildContext context) async {
+    try {
+      // Show confirmation dialog
+      bool confirmLogout = await showDialog(
+            context: context,
+            builder: (context) => AlertDialog(
+              title: const Text('Logout'),
+              content: const Text('Are you sure you want to logout?'),
+              actions: [
+                TextButton(
+                  onPressed: () => Navigator.of(context).pop(false),
+                  child: const Text('Cancel'),
+                ),
+                TextButton(
+                  onPressed: () => Navigator.of(context).pop(true),
+                  child:
+                      const Text('Logout', style: TextStyle(color: Colors.red)),
+                ),
+              ],
+            ),
+          ) ??
+          false;
+
+      if (!confirmLogout) return;
+
+      // Show loading indicator
+      showDialog(
+        context: context,
+        barrierDismissible: false,
+        builder: (context) => const Center(child: CircularProgressIndicator()),
+      );
+
+      // Sign out from Firebase
+      await FirebaseAuth.instance.signOut();
+
+      // Navigate to login screen and remove all previous routes
+      if (context.mounted) {
+        Navigator.of(context).pop(); // Remove loading dialog
+        Navigator.of(context).pushAndRemoveUntil(
+          MaterialPageRoute(builder: (context) => const AuthWrapper()),
+          (route) => false, // Remove all previous routes
+        );
+      }
+    } catch (e) {
+      // Close the loading dialog if there's an error
+      if (context.mounted) {
+        Navigator.of(context).pop();
+
+        // Show error message
+        ScaffoldMessenger.of(context).showSnackBar(
+          SnackBar(content: Text('Error signing out: $e')),
+        );
+      }
+    }
+  }
 
   @override
   Widget build(BuildContext context) {
@@ -30,46 +117,64 @@ class ProfileHeaderWidget extends StatelessWidget {
 
     return Padding(
       padding: const EdgeInsets.all(16.0),
-      child: Row(
-        crossAxisAlignment: CrossAxisAlignment.start,
+      child: Column(
         children: [
-          // User info aligned to the left
-          Expanded(
-            child: Column(
-              crossAxisAlignment: CrossAxisAlignment.start,
-              children: [
-                _buildProfileAvatar(name, profileImageUrl),
+          // Top row with logout button
+          Row(
+            mainAxisAlignment: MainAxisAlignment.end,
+            children: [
+              IconButton(
+                onPressed: () => _signOut(context),
+                icon: const Icon(Icons.logout),
+                tooltip: 'Logout',
+                color: Colors.red,
+              ),
+            ],
+          ),
 
-                Padding(
-                  padding: const EdgeInsets.fromLTRB(12, 0, 0, 0),
-                  child: Column(
-                    crossAxisAlignment: CrossAxisAlignment.start,
-                    children: [
-                      Text(
-                        name.toUpperCase(),
-                        style: const TextStyle(
-                          fontSize: 24,
-                          fontWeight: FontWeight.bold,
-                        ),
+          // User info row
+          Row(
+            crossAxisAlignment: CrossAxisAlignment.start,
+            children: [
+              // User info aligned to the left
+              Expanded(
+                child: Column(
+                  crossAxisAlignment: CrossAxisAlignment.start,
+                  children: [
+                    _buildProfileAvatar(name, profileImageUrl),
+
+                    Padding(
+                      padding: const EdgeInsets.fromLTRB(12, 0, 0, 0),
+                      child: Column(
+                        crossAxisAlignment: CrossAxisAlignment.start,
+                        children: [
+                          Text(
+                            name.toUpperCase(),
+                            style: const TextStyle(
+                              fontSize: 24,
+                              fontWeight: FontWeight.bold,
+                            ),
+                          ),
+                          const SizedBox(height: 4),
+                          Text(
+                            infoText,
+                            style: TextStyle(
+                              fontSize: 14,
+                              color: Colors.grey[600],
+                            ),
+                          ),
+                        ],
                       ),
-                      const SizedBox(height: 4),
-                      Text(
-                        infoText,
-                        style: TextStyle(
-                          fontSize: 14,
-                          color: Colors.grey[600],
-                        ),
-                      ),
-                    ],
-                  ),
+                    ),
+
+                    const SizedBox(height: 16),
+
+                    // Edit Profile Button
+                    _buildEditProfileButton(context),
+                  ],
                 ),
-
-                const SizedBox(height: 16),
-
-                // Edit Profile Button
-                _buildEditProfileButton(context),
-              ],
-            ),
+              ),
+            ],
           ),
         ],
       ),
@@ -84,7 +189,7 @@ class ProfileHeaderWidget extends StatelessWidget {
           )
         : CircleAvatar(
             radius: 40,
-            backgroundColor: Colors.blue,
+            backgroundColor: _getProfileColor(name),
             child: Text(
               name.isNotEmpty ? name[0].toUpperCase() : '?',
               style: const TextStyle(

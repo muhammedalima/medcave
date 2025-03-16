@@ -2,7 +2,7 @@
 
 import 'package:flutter/foundation.dart';
 import 'package:flutter/material.dart';
-import 'package:medcave/common/database/Ambulancerequest/ambulance_request_db.dart';
+import 'package:medcave/common/database/model/Ambulancerequest/ambulance_request_db.dart';
 import 'package:medcave/config/colors/appcolor.dart';
 
 class Buttonambulancesearch extends StatefulWidget {

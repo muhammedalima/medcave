@@ -5,7 +5,7 @@ import 'package:medcave/config/colors/appcolor.dart';
 class AppTheme {
   static final theme = ThemeData(
     splashFactory: NoSplash.splashFactory,
-    scaffoldBackgroundColor: AppColor.backgroundGrey,
+    scaffoldBackgroundColor: AppColor.secondaryBackgroundWhite,
     primaryColor: AppColor.primaryGreen,
     fontFamily: GoogleFonts.instrumentSans().fontFamily,
     cardColor: AppColor.backgroundWhite,

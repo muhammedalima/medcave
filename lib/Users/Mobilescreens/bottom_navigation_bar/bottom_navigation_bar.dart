@@ -138,12 +138,12 @@ class _CustomNavigationBarState extends State<CustomNavigationBar> {
         child: _widgetOptions.elementAt(_selectedIndex),
       ),
       bottomNavigationBar: Container(
-        color: Colors.transparent,
+        decoration: BoxDecoration(color: Colors.transparent),
         child: Padding(
           padding: const EdgeInsets.symmetric(horizontal: 32, vertical: 16),
           child: GNav(
-            color: Colors.black,
-            activeColor: AppColor.primaryGreen,
+            color: AppColor.darkBlack,
+            activeColor: AppColor.primaryGreen, // Color for active tab text
             tabBackgroundColor: AppColor.darkBlack,
             gap: 8,
             tabBorderRadius: 16,

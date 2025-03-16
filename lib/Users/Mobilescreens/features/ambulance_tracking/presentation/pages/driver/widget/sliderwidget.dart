@@ -3,7 +3,7 @@ import 'dart:async';
 import 'package:flutter/material.dart';
 import 'package:cloud_firestore/cloud_firestore.dart';
 import 'package:firebase_auth/firebase_auth.dart';
-import 'package:medcave/common/googlemapfunction/location_update.dart';
+import 'package:medcave/config/colors/appcolor.dart';
 
 class AmbulanceSlider extends StatefulWidget {
   final Function(bool isActive) onSlideComplete;
@@ -19,8 +19,8 @@ class AmbulanceSlider extends StatefulWidget {
     required this.onSlideComplete,
     this.textInactive = 'Slide to take ride',
     this.textActive = 'Ready to take ride',
-    this.primaryColor = const Color(0xFFEDD072),
-    this.secondaryColor = const Color(0xFF1D1D1D),
+    this.primaryColor = AppColor.primaryGreen, // Yellow background
+    this.secondaryColor = AppColor.darkBlack, // Dark background
     this.driverId,
     this.initialValue = false,
   }) : super(key: key);
@@ -43,24 +43,16 @@ class _AmbulanceSliderState extends State<AmbulanceSlider> {
   void initState() {
     super.initState();
     _driverId = widget.driverId ?? FirebaseAuth.instance.currentUser?.uid ?? '';
-    
+
     // Set initial state from widget parameter
     _isComplete = widget.initialValue;
     debugPrint('AmbulanceSlider initialized with isComplete: $_isComplete');
-
-    // Initialize location service
-    DriverLocationService.initialize();
-    
-    // If driver is already active, start location updates
-    if (_isComplete) {
-      DriverLocationService.startLocationUpdates();
-    }
 
     // Set initial position based on value
     WidgetsBinding.instance.addPostFrameCallback((_) {
       if (mounted) {
         final screenWidth = MediaQuery.of(context).size.width;
-        final sliderWidth = screenWidth - 40;
+        final sliderWidth = screenWidth;
         final buttonWidth = 80.0;
         _position = _isComplete ? sliderWidth - buttonWidth : 0;
         setState(() {}); // Ensure UI updates with correct position
@@ -76,23 +68,17 @@ class _AmbulanceSliderState extends State<AmbulanceSlider> {
   @override
   void didUpdateWidget(AmbulanceSlider oldWidget) {
     super.didUpdateWidget(oldWidget);
-    
+
     // If initialValue changed from parent, update slider state
-    if (widget.initialValue != oldWidget.initialValue && widget.initialValue != _isComplete) {
+    if (widget.initialValue != oldWidget.initialValue &&
+        widget.initialValue != _isComplete) {
       setState(() {
         _isComplete = widget.initialValue;
         final screenWidth = MediaQuery.of(context).size.width;
-        final sliderWidth = screenWidth - 40;
+        final sliderWidth = screenWidth;
         final buttonWidth = 80.0;
         _position = _isComplete ? sliderWidth - buttonWidth : 0;
       });
-      
-      // Update location tracking based on new status
-      if (_isComplete) {
-        DriverLocationService.startLocationUpdates();
-      } else {
-        DriverLocationService.stopLocationUpdates();
-      }
     }
   }
 
@@ -116,23 +102,19 @@ class _AmbulanceSliderState extends State<AmbulanceSlider> {
       final bool? isActive = snapshot.data()?['isDriverActive'] as bool?;
       debugPrint('Firestore listener received status: $isActive');
 
-      if (isActive != null && mounted && !_isUpdatingFirebase && isActive != _isComplete) {
+      if (isActive != null &&
+          mounted &&
+          !_isUpdatingFirebase &&
+          isActive != _isComplete) {
         setState(() {
           _isComplete = isActive;
           // Update slider position based on status
           final screenWidth = MediaQuery.of(context).size.width;
-          final sliderWidth = screenWidth - 40;
+          final sliderWidth = screenWidth;
           final buttonWidth = 80.0;
           _position = isActive ? sliderWidth - buttonWidth : 0;
         });
-        
-        // Update location tracking based on new status
-        if (isActive) {
-          DriverLocationService.startLocationUpdates();
-        } else {
-          DriverLocationService.stopLocationUpdates();
-        }
-        
+
         // Notify parent of status change from Firebase
         widget.onSlideComplete(isActive);
       }
@@ -162,14 +144,8 @@ class _AmbulanceSliderState extends State<AmbulanceSlider> {
         'updatedAt': FieldValue.serverTimestamp(),
       });
 
-      // Update location tracking based on new status
-      if (isActive) {
-        await DriverLocationService.startLocationUpdates();
-      } else {
-        await DriverLocationService.stopLocationUpdates();
-      }
-
-      debugPrint('Driver status updated in Firestore: isDriverActive = $isActive');
+      debugPrint(
+          'Driver status updated in Firestore: isDriverActive = $isActive');
     } catch (e) {
       debugPrint('Error updating driver status: $e');
       // If there's an error, revert the UI
@@ -177,7 +153,7 @@ class _AmbulanceSliderState extends State<AmbulanceSlider> {
         setState(() {
           _isComplete = !isActive;
           final screenWidth = MediaQuery.of(context).size.width;
-          final sliderWidth = screenWidth - 40;
+          final sliderWidth = screenWidth;
           final buttonWidth = 80.0;
           _position = _isComplete ? sliderWidth - buttonWidth : 0;
         });
@@ -193,12 +169,12 @@ class _AmbulanceSliderState extends State<AmbulanceSlider> {
 
   void _toggleSliderState() {
     if (_isUpdatingFirebase) return;
-    
+
     final bool newState = !_isComplete;
     setState(() {
       _isComplete = newState;
       final screenWidth = MediaQuery.of(context).size.width;
-      final sliderWidth = screenWidth - 40;
+      final sliderWidth = screenWidth;
       final buttonWidth = 80.0;
       _position = newState ? sliderWidth - buttonWidth : 0;
     });
@@ -211,15 +187,16 @@ class _AmbulanceSliderState extends State<AmbulanceSlider> {
 
   @override
   Widget build(BuildContext context) {
-    // Build method remains unchanged
+    // Updated dimensions to precisely match the provided images
     final screenWidth = MediaQuery.of(context).size.width;
-    final sliderWidth = screenWidth - 40; // 20px padding on each side
-    final buttonWidth = 80.0;
+    final sliderWidth = screenWidth - 16;
+    final buttonWidth = 64.0;
     final sliderHeight = 60.0;
-    final borderRadius = 30.0;
+    final borderRadius = 16.0;
 
-    return Padding(
-      padding: const EdgeInsets.symmetric(horizontal: 20, vertical: 10),
+    return SizedBox(
+      width: sliderWidth,
+      height: sliderHeight,
       child: Stack(
         children: [
           // Background container with rounded rectangle shape
@@ -309,6 +286,14 @@ class _AmbulanceSliderState extends State<AmbulanceSlider> {
                   color:
                       _isComplete ? widget.secondaryColor : widget.primaryColor,
                   borderRadius: BorderRadius.circular(borderRadius),
+                  // Add shadow for depth
+                  boxShadow: [
+                    BoxShadow(
+                      color: Colors.black.withOpacity(0.1),
+                      blurRadius: 4,
+                      offset: Offset(0, 2),
+                    ),
+                  ],
                 ),
                 child: Center(
                   child: _isUpdatingFirebase
@@ -325,7 +310,7 @@ class _AmbulanceSliderState extends State<AmbulanceSlider> {
                           color: _isComplete
                               ? Colors.white
                               : widget.secondaryColor,
-                          size: 24,
+                          size: 28, // Larger icon to match images
                         ),
                 ),
               ),

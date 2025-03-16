@@ -4,7 +4,7 @@ import 'package:medcave/config/colors/appcolor.dart';
 
 class FontStyles {
   static TextStyle titleHero = TextStyle(
-    color: AppColor.backgroundWhite,
+    color: AppColor.primaryBlue,
     fontFamily: GoogleFonts.instrumentSans().fontFamily,
     fontSize: 72,
     fontWeight: FontWeight.w700,

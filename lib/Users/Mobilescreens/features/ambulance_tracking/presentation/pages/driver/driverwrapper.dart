@@ -137,6 +137,6 @@ class _AmbulanceDriverWrapperState extends State<AmbulanceDriverWrapper> {
     }
 
     // Otherwise, show the regular screen
-    return const AmbulanceDriverScreen();
+    return AmbulanceDriverScreen();
   }
 }

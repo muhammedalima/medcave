@@ -1,4 +1,3 @@
-// Custom tab bar that doesn't use the built-in TabBar widget
 import 'package:flutter/material.dart';
 
 class CustomTabBar extends StatelessWidget {
@@ -16,6 +15,8 @@ class CustomTabBar extends StatelessWidget {
     return Container(
       width: double.infinity,
       padding: const EdgeInsets.only(left: 16),
+      // Add height constraint to prevent overflow
+      height: 65, // Increased height to accommodate text and indicator
       child: Row(
         children: [
           _buildTab(0, 'Medications'),
@@ -37,25 +38,26 @@ class CustomTabBar extends StatelessWidget {
           crossAxisAlignment: CrossAxisAlignment.start,
           children: [
             Padding(
-              padding: const EdgeInsets.symmetric(vertical: 12),
+              padding: const EdgeInsets.symmetric(
+                  vertical: 8), // Reduced vertical padding
               child: Text(
                 title,
                 style: TextStyle(
                   color: isSelected ? Colors.black : Colors.grey,
                   fontSize: 22,
-                  fontWeight: isSelected ? FontWeight.bold : FontWeight.bold,
+                  fontWeight: FontWeight.bold,
                 ),
               ),
             ),
             // Custom indicator
-            Container(
+            AnimatedContainer(
+              duration: const Duration(milliseconds: 150),
               height: 2,
               width:
                   title.length * 11.0, // Approximate width based on text length
               color: isSelected ? Colors.black : Colors.transparent,
             ),
-            const SizedBox(
-                height: 2), // Small gap between indicator and content
+            // No additional SizedBox needed here
           ],
         ),
       ),

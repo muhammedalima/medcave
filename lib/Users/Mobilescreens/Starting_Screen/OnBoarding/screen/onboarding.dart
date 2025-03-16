@@ -6,10 +6,11 @@ import 'package:medcave/Users/Mobilescreens/Starting_Screen/OnBoarding/widget/on
 import 'package:medcave/Users/Mobilescreens/Starting_Screen/OnBoarding/widget/onboardingwidget_arrow.dart';
 import 'package:medcave/Users/Mobilescreens/Starting_Screen/OnBoarding/widget/selectableButtton.dart';
 import 'package:medcave/Users/Mobilescreens/bottom_navigation_bar/bottom_navigation_bar.dart';
-import 'package:medcave/common/database/User/driver_db.dart';
-import 'package:medcave/common/database/User/user_db.dart';
+import 'package:medcave/common/database/model/User/driver_db.dart';
+import 'package:medcave/common/database/model/User/user_db.dart';
 import 'package:cloud_firestore/cloud_firestore.dart';
 import 'package:firebase_auth/firebase_auth.dart';
+import 'package:medcave/config/colors/appcolor.dart';
 
 class Onboarding extends StatefulWidget {
   const Onboarding({super.key});
@@ -205,8 +206,8 @@ class _OnboardingState extends State<Onboarding> {
                   },
                   style: ElevatedButton.styleFrom(
                     backgroundColor: _data.isAmbulanceDriver
-                        ? const Color(0xFFFFD54F)
-                        : const Color(0xFFF3F4F6),
+                        ? AppColor.primaryGreen
+                        : AppColor.backgroundGrey,
                     foregroundColor: Colors.black,
                     padding: const EdgeInsets.symmetric(vertical: 16),
                     shape: RoundedRectangleBorder(
@@ -243,8 +244,8 @@ class _OnboardingState extends State<Onboarding> {
                   },
                   style: ElevatedButton.styleFrom(
                     backgroundColor: !_data.isAmbulanceDriver
-                        ? Colors.black
-                        : const Color(0xFFF3F4F6),
+                        ? AppColor.darkBlack
+                        : AppColor.backgroundGrey,
                     foregroundColor:
                         !_data.isAmbulanceDriver ? Colors.white : Colors.black,
                     padding: const EdgeInsets.symmetric(vertical: 16),
@@ -342,8 +343,8 @@ class _OnboardingState extends State<Onboarding> {
                   },
                   style: ElevatedButton.styleFrom(
                     backgroundColor: selectedGender == 'Male'
-                        ? const Color(0xFFFFD54F)
-                        : const Color(0xFFF3F4F6),
+                        ? AppColor.primaryGreen
+                        : AppColor.backgroundGrey,
                     foregroundColor: Colors.black,
                     padding: const EdgeInsets.symmetric(vertical: 16),
                     shape: RoundedRectangleBorder(
@@ -381,8 +382,8 @@ class _OnboardingState extends State<Onboarding> {
                   },
                   style: ElevatedButton.styleFrom(
                     backgroundColor: selectedGender == 'Female'
-                        ? const Color(0xFFFFD54F)
-                        : const Color(0xFFF3F4F6),
+                        ? AppColor.primaryGreen
+                        : AppColor.backgroundGrey,
                     foregroundColor: Colors.black,
                     padding: const EdgeInsets.symmetric(vertical: 16),
                     shape: RoundedRectangleBorder(
@@ -421,8 +422,8 @@ class _OnboardingState extends State<Onboarding> {
               },
               style: ElevatedButton.styleFrom(
                 backgroundColor: selectedGender == 'Other'
-                    ? const Color(0xFFFFD54F)
-                    : const Color(0xFFF3F4F6),
+                    ? AppColor.primaryGreen
+                    : AppColor.backgroundGrey,
                 foregroundColor: Colors.black,
                 padding: const EdgeInsets.symmetric(vertical: 16),
                 shape: RoundedRectangleBorder(
