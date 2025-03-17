@@ -1,7 +1,6 @@
 // File: lib/common/services/medicine_notification_manager.dart
 
 import 'dart:async';
-import 'dart:convert';
 import 'package:flutter/foundation.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter_local_notifications/flutter_local_notifications.dart';
@@ -12,6 +11,7 @@ import 'package:firebase_auth/firebase_auth.dart';
 import 'package:shared_preferences/shared_preferences.dart';
 import 'package:medcave/common/database/model/User/reminder/reminder_db.dart';
 import 'package:cloud_firestore/cloud_firestore.dart';
+import 'package:medcave/common/services/medicine_notification_service.dart';
 
 class MedicineNotificationManager {
   // Singleton pattern
@@ -506,8 +506,7 @@ class MedicineNotificationManager {
     }
   }
 
-  // Schedule a daily notification
-  // Then modify the _scheduleDaily method in MedicineNotificationManager to call this method when scheduling notifications
+  // Schedule a daily notification with pending notification support
   Future<int?> _scheduleDaily(
     int id,
     String title,
@@ -571,8 +570,10 @@ class MedicineNotificationManager {
         payload: payload,
       );
 
-      // Add to notification history
-      await _storeMedicineReminderInHistory(title, body, payload);
+      // IMPORTANT CHANGE: Add to pending notifications in MedicineNotificationService
+      // This will show up immediately in the UI but will move to history when scheduled time is reached
+      await _addMedicineToPendingNotifications(
+          title, body, payload, scheduledTZDate.toLocal());
 
       return id;
     } catch (e) {
@@ -580,6 +581,31 @@ class MedicineNotificationManager {
         print('Error scheduling daily notification: $e');
       }
       return null;
+    }
+  }
+
+  // Add medicine reminder to pending notifications via MedicineNotificationService
+  Future<void> _addMedicineToPendingNotifications(String medicineName,
+      String body, String timing, DateTime scheduledTime) async {
+    try {
+      // Extract just the medicine name without "Time to take" etc.
+      String cleanMedicineName = medicineName;
+
+      // Add to pending notifications through the MedicineNotificationService
+      await MedicineNotificationService.addPendingNotification(
+          medicineName: cleanMedicineName,
+          body: body,
+          timing: timing,
+          scheduledTime: scheduledTime);
+
+      if (kDebugMode) {
+        print(
+            'Added pending notification for $cleanMedicineName at $scheduledTime');
+      }
+    } catch (e) {
+      if (kDebugMode) {
+        print('Error adding medicine to pending notifications: $e');
+      }
     }
   }
 
@@ -598,6 +624,16 @@ class MedicineNotificationManager {
 
       for (final key in notificationKeys) {
         await prefs.remove(key);
+      }
+
+      // Also clear all pending notifications from MedicineNotificationService
+      try {
+        await MedicineNotificationService.clearNotificationHistory();
+      } catch (e) {
+        if (kDebugMode) {
+          print(
+              'Error clearing notifications from MedicineNotificationService: $e');
+        }
       }
 
       if (kDebugMode) {
@@ -624,6 +660,10 @@ class MedicineNotificationManager {
       final prefs = await SharedPreferences.getInstance();
       await prefs.remove('medicine_notifications_$userId');
 
+      // Also clear pending notifications from MedicineNotificationService
+      // We're not removing this because it would affect all users
+      // If user-specific cancellation is needed, modify MedicineNotificationService to support it
+
       if (kDebugMode) {
         print(
             "Cancelled ${notificationIds.length} notifications for user $userId");
@@ -638,59 +678,5 @@ class MedicineNotificationManager {
   // Clean up resources
   void dispose() {
     _refreshDebounceTimer?.cancel();
-  }
-
-  Future<void> _storeMedicineReminderInHistory(
-      String medicineName, String body, String timing) async {
-    try {
-      final prefs = await SharedPreferences.getInstance();
-
-      // Get current stored notifications
-      final String notificationsJson =
-          prefs.getString('notification_history') ?? '[]';
-      List<dynamic> notifications = [];
-
-      try {
-        notifications = jsonDecode(notificationsJson);
-      } catch (e) {
-        if (kDebugMode) {
-          print('Error decoding notification history: $e');
-        }
-        notifications = [];
-      }
-
-      // Create a notification record
-      final Map<String, dynamic> notificationRecord = {
-        'id': DateTime.now().millisecondsSinceEpoch.toString(),
-        'title': 'Medicine Reminder: $medicineName',
-        'body': body,
-        'time': DateTime.now().toIso8601String(),
-        'data': {
-          'type': 'medication',
-          'medicineName': medicineName,
-          'timing': timing
-        },
-        'type': 'medication',
-      };
-
-      // Add to the beginning of the list (newest first)
-      notifications.insert(0, notificationRecord);
-
-      // Limit history to 100 notifications
-      if (notifications.length > 100) {
-        notifications = notifications.sublist(0, 100);
-      }
-
-      // Store back in SharedPreferences
-      await prefs.setString('notification_history', jsonEncode(notifications));
-
-      if (kDebugMode) {
-        print('Stored medicine reminder in history: $medicineName');
-      }
-    } catch (e) {
-      if (kDebugMode) {
-        print('Error storing medicine reminder in history: $e');
-      }
-    }
   }
 }

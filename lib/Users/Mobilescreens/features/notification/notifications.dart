@@ -1,7 +1,6 @@
 import 'package:flutter/material.dart';
-import 'package:medcave/Users/Mobilescreens/commonWidget/customnavbar.dart';
 import 'package:medcave/Users/Mobilescreens/commonWidget/quotewidget.dart';
-import 'package:medcave/common/services/notification_service.dart';
+import 'package:medcave/common/services/medicine_notification_service.dart';
 import 'package:medcave/config/colors/appcolor.dart';
 import 'package:intl/intl.dart';
 import 'package:cloud_firestore/cloud_firestore.dart';
@@ -36,9 +35,9 @@ class _NotificationsScreenState extends State<NotificationsScreen> {
       _loadNotifications();
     });
 
-    // Also listen to our stream from NotificationService if it exists
+    // Also listen to our stream from MedicineNotificationService if it exists
     try {
-      NotificationService.notificationStream.listen((_) {
+      MedicineNotificationService.notificationStream.listen((_) {
         // Refresh the notification list when a new notification is added to history
         _loadNotifications();
       });
@@ -57,12 +56,13 @@ class _NotificationsScreenState extends State<NotificationsScreen> {
     });
 
     try {
-      // Try to get notifications from the NotificationService
+      // Try to get notifications from the MedicineNotificationService
       List<Map<String, dynamic>> notifications = [];
 
       try {
-        // Use NotificationService if available
-        notifications = await NotificationService.getNotificationHistory();
+        // Use MedicineNotificationService if available
+        notifications =
+            await MedicineNotificationService.getNotificationHistory();
       } catch (e) {
         // Fallback to direct SharedPreferences access
         if (kDebugMode) {
@@ -96,18 +96,10 @@ class _NotificationsScreenState extends State<NotificationsScreen> {
         }).toList();
       }
 
-      // Process each notification to ensure proper type identification
-      final processedNotifications = notifications.map((notification) {
-        // If it's a medicine notification but type doesn't show it, fix it
-        if (_isMedicineNotification(notification) &&
-            notification['type'] != 'medication') {
-          return {
-            ...notification,
-            'type': 'medication' // Override the type
-          };
-        }
-        return notification;
-      }).toList();
+      // Process notifications to ensure proper type identification
+      // and remove duplicates (based on title and timestamp)
+      final processedNotifications =
+          _removeDuplicateMedicineNotifications(notifications);
 
       // Sort by time (newest first)
       processedNotifications.sort(
@@ -126,6 +118,65 @@ class _NotificationsScreenState extends State<NotificationsScreen> {
         _isLoading = false;
       });
     }
+  }
+
+  // Helper method to remove duplicate medicine notifications
+  List<Map<String, dynamic>> _removeDuplicateMedicineNotifications(
+      List<Map<String, dynamic>> notifications) {
+    final uniqueNotifications = <Map<String, dynamic>>[];
+    final seenKeys = <String>{};
+
+    for (final notification in notifications) {
+      // Process notification type
+      if (_isMedicineNotification(notification) &&
+          notification['type'] != 'medication') {
+        notification['type'] = 'medication';
+      }
+
+      // Create a unique key for each notification based on critical fields
+      final String title = notification['title']?.toString() ?? '';
+      final DateTime time = notification['time'] as DateTime;
+      final String timeFormatted = DateFormat('yyyy-MM-dd').format(time);
+      final String type = notification['type']?.toString() ?? '';
+      final bool isPending = notification['isPending'] == true;
+
+      // For medicine notifications, use title and date (not exact timestamp)
+      // to avoid duplicates from scheduling the same medicine multiple times
+      // For pending notifications, include pending status in the key
+      String uniqueKey;
+      if (type == 'medication') {
+        final String medicineName = _extractMedicineName(title);
+        uniqueKey =
+            '$medicineName-$timeFormatted-$type-${isPending ? 'pending' : 'delivered'}';
+      } else {
+        // For other notifications, use full details
+        uniqueKey = '$title-${time.toIso8601String()}-$type';
+      }
+
+      if (!seenKeys.contains(uniqueKey)) {
+        seenKeys.add(uniqueKey);
+        uniqueNotifications.add(notification);
+      }
+    }
+
+    return uniqueNotifications;
+  }
+
+  // Extract medicine name from notification title
+  String _extractMedicineName(String title) {
+    // Remove common prefixes from medicine notification titles
+    String cleanTitle = title
+        .replaceAll('Medicine Reminder: ', '')
+        .replaceAll('Take your ', '')
+        .replaceAll('Time to take ', '')
+        .trim();
+
+    // If there's still a colon, take the part after it
+    if (cleanTitle.contains(':')) {
+      cleanTitle = cleanTitle.split(':').last.trim();
+    }
+
+    return cleanTitle;
   }
 
   // Helper method to detect medicine notifications
@@ -252,7 +303,7 @@ class _NotificationsScreenState extends State<NotificationsScreen> {
     }
   }
 
-  // Format time for display
+  // Format time for delivered notifications
   String _formatTime(DateTime time) {
     final now = DateTime.now();
     final difference = now.difference(time);
@@ -272,16 +323,44 @@ class _NotificationsScreenState extends State<NotificationsScreen> {
     }
   }
 
+  // Format time for scheduled notifications
+  String _formatScheduledTime(DateTime scheduledTime) {
+    final now = DateTime.now();
+    final difference = scheduledTime.difference(now);
+
+    // If it's today
+    if (scheduledTime.year == now.year &&
+        scheduledTime.month == now.month &&
+        scheduledTime.day == now.day) {
+      return 'Today at ${DateFormat('hh:mm a').format(scheduledTime)}';
+    }
+    // If it's tomorrow
+    else if (scheduledTime.year == now.year &&
+        scheduledTime.month == now.month &&
+        scheduledTime.day == now.day + 1) {
+      return 'Tomorrow at ${DateFormat('hh:mm a').format(scheduledTime)}';
+    }
+    // If it's within the next 7 days
+    else if (difference.inDays < 7) {
+      return '${DateFormat('EEEE').format(scheduledTime)} at ${DateFormat('hh:mm a').format(scheduledTime)}';
+    }
+    // If it's beyond 7 days
+    else {
+      return '${DateFormat('MMM dd').format(scheduledTime)} at ${DateFormat('hh:mm a').format(scheduledTime)}';
+    }
+  }
+
   // Delete notification
   void _deleteNotification(String id) async {
     try {
-      // Try to use NotificationService
+      // Try to use MedicineNotificationService
       try {
-        await NotificationService.deleteNotification(id);
+        await MedicineNotificationService.deleteNotification(id);
       } catch (e) {
         // Fallback to direct SharedPreferences if service method isn't available
         if (kDebugMode) {
-          print('Error using NotificationService.deleteNotification: $e');
+          print(
+              'Error using MedicineNotificationService.deleteNotification: $e');
           print('Falling back to direct SharedPreferences manipulation');
         }
 
@@ -338,18 +417,20 @@ class _NotificationsScreenState extends State<NotificationsScreen> {
   // Clear all notifications
   void _clearAllNotifications() async {
     try {
-      // Try to use NotificationService
+      // Try to use MedicineNotificationService
       try {
-        await NotificationService.clearNotificationHistory();
+        await MedicineNotificationService.clearNotificationHistory();
       } catch (e) {
         // Fallback to direct SharedPreferences if service method isn't available
         if (kDebugMode) {
-          print('Error using NotificationService.clearNotificationHistory: $e');
+          print(
+              'Error using MedicineNotificationService.clearNotificationHistory: $e');
           print('Falling back to direct SharedPreferences manipulation');
         }
 
         final prefs = await SharedPreferences.getInstance();
         await prefs.setString('notification_history', '[]');
+        await prefs.setString('pending_notifications', '[]');
       }
 
       // Update UI
@@ -391,6 +472,21 @@ class _NotificationsScreenState extends State<NotificationsScreen> {
     try {
       final data = notification['data'];
       final type = notification['type'].toString().toLowerCase();
+      final bool isPending = notification['isPending'] == true;
+
+      // If it's a pending notification, show different behavior
+      if (isPending) {
+        if (!mounted) return;
+
+        ScaffoldMessenger.of(context).showSnackBar(
+          SnackBar(
+            content: Text(
+                'This medicine reminder is scheduled for ${_formatScheduledTime(notification['time'])}'),
+            duration: const Duration(seconds: 3),
+          ),
+        );
+        return;
+      }
 
       if (type == 'ambulance_request' &&
           data != null &&
@@ -477,217 +573,323 @@ class _NotificationsScreenState extends State<NotificationsScreen> {
     }
   }
 
+  // Render a notification item with pending support
+  Widget _renderNotificationItem(Map<String, dynamic> notification) {
+    final bool isPending = notification['isPending'] == true ||
+        notification['status'] == 'pending';
+
+    return InkWell(
+      onTap: () => _handleNotificationTap(notification),
+      child: Container(
+        margin: const EdgeInsets.symmetric(
+          horizontal: 16.0,
+          vertical: 6.0,
+        ),
+        decoration: BoxDecoration(
+          color: Colors.white,
+          borderRadius: BorderRadius.circular(12),
+          boxShadow: [
+            BoxShadow(
+              color: Colors.black.withOpacity(0.05),
+              blurRadius: 8,
+              offset: const Offset(0, 2),
+            ),
+          ],
+        ),
+        child: Padding(
+          padding: const EdgeInsets.all(12.0),
+          child: Row(
+            crossAxisAlignment: CrossAxisAlignment.start,
+            children: [
+              // Notification icon (with pending indicator if needed)
+              Stack(
+                children: [
+                  _getNotificationIcon(notification['type'] ?? 'general'),
+                  if (isPending)
+                    Positioned(
+                      right: 0,
+                      top: 0,
+                      child: Container(
+                        width: 18,
+                        height: 18,
+                        decoration: BoxDecoration(
+                          color: Colors.orange,
+                          shape: BoxShape.circle,
+                          border: Border.all(color: Colors.white, width: 2),
+                        ),
+                        child: const Center(
+                          child: Icon(
+                            Icons.schedule,
+                            size: 10,
+                            color: Colors.white,
+                          ),
+                        ),
+                      ),
+                    ),
+                ],
+              ),
+              const SizedBox(width: 16),
+              // Notification content
+              Expanded(
+                child: Column(
+                  crossAxisAlignment: CrossAxisAlignment.start,
+                  children: [
+                    Text(
+                      notification['title'] ?? 'Notification',
+                      style: const TextStyle(
+                        fontSize: 16,
+                        fontWeight: FontWeight.bold,
+                        color: Colors.black,
+                      ),
+                    ),
+                    if (notification['body'] != null) ...[
+                      const SizedBox(height: 4),
+                      Text(
+                        notification['body'],
+                        style: TextStyle(
+                          fontSize: 14,
+                          color: Colors.grey[700],
+                        ),
+                        maxLines: 2,
+                        overflow: TextOverflow.ellipsis,
+                      ),
+                    ],
+                    const SizedBox(height: 6),
+                    // Show scheduled time differently for pending notifications
+                    Text(
+                      isPending
+                          ? _formatScheduledTime(
+                              notification['scheduledTime'] != null
+                                  ? DateTime.parse(
+                                      notification['scheduledTime'])
+                                  : notification['time'] as DateTime)
+                          : _formatTime(notification['time'] ?? DateTime.now()),
+                      style: TextStyle(
+                        fontSize: 12,
+                        color:
+                            isPending ? Colors.orange[700] : Colors.grey[600],
+                        fontWeight:
+                            isPending ? FontWeight.bold : FontWeight.normal,
+                      ),
+                    ),
+                    // Type indicator with status
+                    Row(
+                      children: [
+                        Container(
+                          margin: const EdgeInsets.only(top: 8),
+                          padding: const EdgeInsets.symmetric(
+                            horizontal: 8,
+                            vertical: 4,
+                          ),
+                          decoration: BoxDecoration(
+                            color: _getTypeColor(
+                                notification['type'] ?? 'general'),
+                            borderRadius: BorderRadius.circular(12),
+                          ),
+                          child: Text(
+                            _getTypeText(notification['type'] ?? 'general'),
+                            style: const TextStyle(
+                              fontSize: 10,
+                              color: Colors.white,
+                            ),
+                          ),
+                        ),
+                        if (isPending) ...[
+                          const SizedBox(width: 6),
+                          Container(
+                            margin: const EdgeInsets.only(top: 8),
+                            padding: const EdgeInsets.symmetric(
+                              horizontal: 8,
+                              vertical: 4,
+                            ),
+                            decoration: BoxDecoration(
+                              color: Colors.orange[700],
+                              borderRadius: BorderRadius.circular(12),
+                            ),
+                            child: const Text(
+                              'SCHEDULED',
+                              style: TextStyle(
+                                fontSize: 10,
+                                color: Colors.white,
+                              ),
+                            ),
+                          ),
+                        ],
+                      ],
+                    ),
+                  ],
+                ),
+              ),
+              // Delete button
+              IconButton(
+                icon: const Icon(
+                  Icons.delete_outline,
+                  color: Colors.grey,
+                ),
+                onPressed: () => _deleteNotification(notification['id']),
+              ),
+            ],
+          ),
+        ),
+      ),
+    );
+  }
+
   @override
   Widget build(BuildContext context) {
     return Scaffold(
-      appBar: CustomAppBar(
-        onPressed: () => Navigator.pop(context),
-      ),
-      backgroundColor: AppColor.secondaryBackgroundWhite,
+      backgroundColor: AppColor.backgroundGrey,
+      // Make the whole screen scrollable with SingleChildScrollView
       body: SafeArea(
-        child: Column(
-          crossAxisAlignment: CrossAxisAlignment.start,
-          children: [
-            // Header with back button and title
-            Padding(
-              padding: const EdgeInsets.all(16.0),
-              child: Column(
-                crossAxisAlignment: CrossAxisAlignment.start,
-                children: [
-                  Row(
-                    mainAxisAlignment: MainAxisAlignment.spaceBetween,
-                    children: [
-                      const Text(
+        child: RefreshIndicator(
+          onRefresh: _refreshNotifications,
+          child: CustomScrollView(
+            slivers: [
+              // App bar with back button and title
+              SliverAppBar(
+                backgroundColor: AppColor.backgroundGrey,
+                elevation: 0,
+                floating: true,
+                toolbarHeight: 48, // Set explicit height for toolbar
+                automaticallyImplyLeading: false,
+                flexibleSpace: FlexibleSpaceBar(
+                  background: Padding(
+                    padding: const EdgeInsets.fromLTRB(
+                        16.0, 0, 16.0, 0), // Adjusted padding
+                    child: Column(
+                      crossAxisAlignment: CrossAxisAlignment.start,
+                      mainAxisAlignment:
+                          MainAxisAlignment.end, // Align to bottom
+                      children: [
+                        // Back button row
+                        Row(
+                          mainAxisAlignment: MainAxisAlignment.spaceBetween,
+                          children: [
+                            GestureDetector(
+                              onTap: () => Navigator.pop(context),
+                              child: Container(
+                                width: 40, // Smaller
+                                height: 40, // Smaller
+                                decoration: BoxDecoration(
+                                  color: Colors.grey[200],
+                                  shape: BoxShape.circle,
+                                ),
+                                child: const Icon(
+                                  Icons.arrow_back,
+                                  color: Colors.grey,
+                                  size: 20, // Smaller
+                                ),
+                              ),
+                            ),
+                            // Clear button moved here to save vertical space
+                            if (_notifications.isNotEmpty)
+                              TextButton.icon(
+                                onPressed: _clearAllNotifications,
+                                icon: const Icon(Icons.delete_sweep_outlined,
+                                    size: 18),
+                                label: const Text('Clear All',
+                                    style: TextStyle(fontSize: 12)),
+                                style: TextButton.styleFrom(
+                                  foregroundColor: Colors.red,
+                                  padding: const EdgeInsets.symmetric(
+                                      horizontal: 8, vertical: 4),
+                                ),
+                              ),
+                          ],
+                        ),
+                      ],
+                    ),
+                  ),
+                ),
+                expandedHeight: 48, // Reduced from 120
+              ),
+              SliverToBoxAdapter(
+                child: Padding(
+                  padding: const EdgeInsets.fromLTRB(16.0, 8.0, 16.0, 8.0),
+                  child: Column(
+                    crossAxisAlignment: CrossAxisAlignment.start,
+                    children: const [
+                      Text(
                         'Notifications',
                         style: TextStyle(
-                          fontSize: 32,
+                          fontSize: 28, // Reduced from 32
                           fontWeight: FontWeight.bold,
                           color: Colors.black,
                         ),
                       ),
-                      if (_notifications.isNotEmpty)
-                        TextButton.icon(
-                          onPressed: _clearAllNotifications,
-                          icon: const Icon(Icons.delete_sweep_outlined),
-                          label: const Text('Clear All'),
-                          style: TextButton.styleFrom(
-                            foregroundColor: Colors.red,
-                          ),
-                        ),
+                      SizedBox(height: 4),
                     ],
                   ),
-                ],
-              ),
-            ),
-
-            // Notification list
-            Expanded(
-              child: RefreshIndicator(
-                onRefresh: _refreshNotifications,
-                child: _isLoading
-                    ? const Center(child: CircularProgressIndicator())
-                    : _notifications.isEmpty
-                        ? Center(
-                            child: Column(
-                              mainAxisAlignment: MainAxisAlignment.center,
-                              children: [
-                                Icon(
-                                  Icons.notifications_off_outlined,
-                                  size: 64,
-                                  color: Colors.grey[400],
-                                ),
-                                const SizedBox(height: 16),
-                                Text(
-                                  'No notifications',
-                                  style: TextStyle(
-                                    fontSize: 18,
-                                    fontWeight: FontWeight.w500,
-                                    color: Colors.grey[600],
-                                  ),
-                                ),
-                                const SizedBox(height: 8),
-                                Text(
-                                  'Pull down to refresh',
-                                  style: TextStyle(
-                                    fontSize: 14,
-                                    color: Colors.grey[500],
-                                  ),
-                                ),
-                              ],
-                            ),
-                          )
-                        : ListView.builder(
-                            itemCount: _notifications.length,
-                            itemBuilder: (context, index) {
-                              final notification = _notifications[index];
-                              return InkWell(
-                                onTap: () =>
-                                    _handleNotificationTap(notification),
-                                child: Container(
-                                  margin: const EdgeInsets.symmetric(
-                                    horizontal: 16.0,
-                                    vertical: 6.0,
-                                  ),
-                                  decoration: BoxDecoration(
-                                    color: Colors.white,
-                                    borderRadius: BorderRadius.circular(12),
-                                    boxShadow: [
-                                      BoxShadow(
-                                        color: Colors.black.withOpacity(0.05),
-                                        blurRadius: 8,
-                                        offset: const Offset(0, 2),
-                                      ),
-                                    ],
-                                  ),
-                                  child: Padding(
-                                    padding: const EdgeInsets.all(12.0),
-                                    child: Row(
-                                      crossAxisAlignment:
-                                          CrossAxisAlignment.start,
-                                      children: [
-                                        // Notification icon
-                                        _getNotificationIcon(
-                                            notification['type'] ?? 'general'),
-                                        const SizedBox(width: 16),
-                                        // Notification content
-                                        Expanded(
-                                          child: Column(
-                                            crossAxisAlignment:
-                                                CrossAxisAlignment.start,
-                                            children: [
-                                              Text(
-                                                notification['title'] ??
-                                                    'Notification',
-                                                style: const TextStyle(
-                                                  fontSize: 16,
-                                                  fontWeight: FontWeight.bold,
-                                                  color: Colors.black,
-                                                ),
-                                              ),
-                                              if (notification['body'] !=
-                                                  null) ...[
-                                                const SizedBox(height: 4),
-                                                Text(
-                                                  notification['body'],
-                                                  style: TextStyle(
-                                                    fontSize: 14,
-                                                    color: Colors.grey[700],
-                                                  ),
-                                                  maxLines: 2,
-                                                  overflow:
-                                                      TextOverflow.ellipsis,
-                                                ),
-                                              ],
-                                              const SizedBox(height: 6),
-                                              Text(
-                                                _formatTime(
-                                                    notification['time'] ??
-                                                        DateTime.now()),
-                                                style: TextStyle(
-                                                  fontSize: 12,
-                                                  color: Colors.grey[600],
-                                                ),
-                                              ),
-                                              // Type indicator
-                                              Container(
-                                                margin: const EdgeInsets.only(
-                                                    top: 8),
-                                                padding:
-                                                    const EdgeInsets.symmetric(
-                                                  horizontal: 8,
-                                                  vertical: 4,
-                                                ),
-                                                decoration: BoxDecoration(
-                                                  color: _getTypeColor(
-                                                      notification['type'] ??
-                                                          'general'),
-                                                  borderRadius:
-                                                      BorderRadius.circular(12),
-                                                ),
-                                                child: Text(
-                                                  _getTypeText(
-                                                      notification['type'] ??
-                                                          'general'),
-                                                  style: const TextStyle(
-                                                    fontSize: 10,
-                                                    color: Colors.white,
-                                                  ),
-                                                ),
-                                              ),
-                                            ],
-                                          ),
-                                        ),
-                                        // Delete button
-                                        IconButton(
-                                          icon: const Icon(
-                                            Icons.delete_outline,
-                                            color: Colors.grey,
-                                          ),
-                                          onPressed: () => _deleteNotification(
-                                              notification['id']),
-                                        ),
-                                      ],
-                                    ),
-                                  ),
-                                ),
-                              );
-                            },
-                          ),
-              ),
-            ),
-
-            // Footer quote
-            const Padding(
-              padding: EdgeInsets.symmetric(vertical: 16.0),
-              child: Center(
-                child: WaveyMessage(
-                  message: 'We Never\nMiss Care!',
-                  textColor: AppColor.backgroundWhite,
-                  waveyLineColor: Colors.black,
                 ),
               ),
-            ),
-          ],
+
+              // Loading indicator
+              if (_isLoading)
+                const SliverFillRemaining(
+                  child: Center(child: CircularProgressIndicator()),
+                ),
+
+              // Empty state
+              if (!_isLoading && _notifications.isEmpty)
+                SliverFillRemaining(
+                  child: Center(
+                    child: Column(
+                      mainAxisAlignment: MainAxisAlignment.center,
+                      children: [
+                        Icon(
+                          Icons.notifications_off_outlined,
+                          size: 64,
+                          color: Colors.grey[400],
+                        ),
+                        const SizedBox(height: 16),
+                        Text(
+                          'No notifications',
+                          style: TextStyle(
+                            fontSize: 18,
+                            fontWeight: FontWeight.w500,
+                            color: Colors.grey[600],
+                          ),
+                        ),
+                        const SizedBox(height: 8),
+                        Text(
+                          'Pull down to refresh',
+                          style: TextStyle(
+                            fontSize: 14,
+                            color: Colors.grey[500],
+                          ),
+                        ),
+                      ],
+                    ),
+                  ),
+                ),
+
+              // Notification list
+              if (!_isLoading && _notifications.isNotEmpty)
+                SliverList(
+                  delegate: SliverChildBuilderDelegate(
+                    (context, index) {
+                      if (index == _notifications.length) {
+                        // Footer at the end of the list
+                        return const Padding(
+                          padding: EdgeInsets.symmetric(vertical: 16.0),
+                          child: Center(
+                            child: WaveyMessage(
+                              message: 'We Never\nMiss Care!',
+                              textColor: AppColor.backgroundWhite,
+                              waveyLineColor: Colors.black,
+                            ),
+                          ),
+                        );
+                      }
+
+                      final notification = _notifications[index];
+                      return _renderNotificationItem(notification);
+                    },
+                    childCount: _notifications.length + 1, // +1 for footer
+                  ),
+                ),
+            ],
+          ),
         ),
       ),
     );

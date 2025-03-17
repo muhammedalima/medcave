@@ -46,8 +46,8 @@ class HomeAppBar extends StatelessWidget implements PreferredSizeWidget {
               backgroundColor: AppColor.navigationBackColor,
               child: IconButton(
                 icon: const Icon(
-                  Icons.notifications_active,
-                  color: Color(0xff666666),
+                  Icons.notifications,
+                  color: Colors.black,
                   size: 32,
                 ),
                 onPressed: () => Navigator.push(
