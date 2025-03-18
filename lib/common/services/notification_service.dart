@@ -8,6 +8,7 @@ import 'package:flutter_local_notifications/flutter_local_notifications.dart';
 import 'package:firebase_auth/firebase_auth.dart';
 import 'package:cloud_firestore/cloud_firestore.dart';
 import 'package:geolocator/geolocator.dart';
+import 'package:medcave/Initialization_files/notification_channels.dart';
 import 'package:medcave/Users/Mobilescreens/features/ambulance_tracking/presentation/pages/driver/details_ambulancedriver.dart';
 import 'package:medcave/Users/Mobilescreens/features/ambulance_tracking/presentation/pages/driver/driverwrapper.dart';
 import 'dart:async';
@@ -23,6 +24,16 @@ class NotificationService {
   // Flag to track initialization status
   bool _isInitialized = false;
 
+  // Rate limiting for background tasks
+  DateTime? _lastCheckDriverStatusTime;
+  static const Duration _minimumCheckInterval = Duration(minutes: 10);
+
+  // Error tracking to prevent continuous retries
+  int _consecutiveErrors = 0;
+  static const int _maxConsecutiveErrors = 3;
+  DateTime? _lastErrorTime;
+  static const Duration _errorCooldownPeriod = Duration(hours: 1);
+
   final FirebaseMessaging _firebaseMessaging = FirebaseMessaging.instance;
   final FlutterLocalNotificationsPlugin _flutterLocalNotificationsPlugin =
       FlutterLocalNotificationsPlugin();
@@ -30,13 +41,6 @@ class NotificationService {
   // Global navigator key for navigation from service
   static final GlobalKey<NavigatorState> navigatorKey =
       GlobalKey<NavigatorState>();
-
-  static const AndroidNotificationChannel channel = AndroidNotificationChannel(
-    'ambulance_requests',
-    'Ambulance Requests',
-    description: 'This channel is used for ambulance request notifications.',
-    importance: Importance.max,
-  );
 
   // Stream controller for notification updates
   static final StreamController<RemoteMessage> _notificationStreamController =
@@ -75,7 +79,10 @@ class NotificationService {
       // Initialize local notifications
       await _initializeLocalNotifications();
 
-      // Start FCM token handling in background
+      // Clear error state on initialization
+      await _resetErrorState();
+
+      // Start FCM token handling in background - with rate limiting
       _saveFcmTokenInBackground();
 
       // Handle foreground messages
@@ -101,6 +108,121 @@ class NotificationService {
     }
   }
 
+  // Reset error tracking state
+  Future<void> _resetErrorState() async {
+    try {
+      final prefs = await SharedPreferences.getInstance();
+      await prefs.remove('last_driver_status_check');
+      await prefs.remove('consecutive_errors');
+      await prefs.remove('last_error_time');
+      _consecutiveErrors = 0;
+      _lastErrorTime = null;
+      _lastCheckDriverStatusTime = null;
+    } catch (e) {
+      if (kDebugMode) {
+        print('Error resetting error state: $e');
+      }
+    }
+  }
+
+  // Check if a driver status operation should be rate-limited
+  Future<bool> _shouldRateLimitDriverStatusCheck() async {
+    try {
+      final prefs = await SharedPreferences.getInstance();
+      
+      // Load previous state
+      final lastCheckTimeStr = prefs.getString('last_driver_status_check');
+      if (lastCheckTimeStr != null) {
+        _lastCheckDriverStatusTime = DateTime.parse(lastCheckTimeStr);
+      }
+      
+      _consecutiveErrors = prefs.getInt('consecutive_errors') ?? 0;
+      
+      final lastErrorTimeStr = prefs.getString('last_error_time');
+      if (lastErrorTimeStr != null) {
+        _lastErrorTime = DateTime.parse(lastErrorTimeStr);
+      }
+
+      final now = DateTime.now();
+
+      // If we've had too many errors and we're still in cooldown period
+      if (_consecutiveErrors >= _maxConsecutiveErrors && 
+          _lastErrorTime != null &&
+          now.difference(_lastErrorTime!) < _errorCooldownPeriod) {
+        if (kDebugMode) {
+          print('Rate limiting due to too many consecutive errors');
+        }
+        return true;
+      }
+
+      // Check time-based rate limit
+      if (_lastCheckDriverStatusTime != null) {
+        final timeSinceLastCheck = now.difference(_lastCheckDriverStatusTime!);
+        if (timeSinceLastCheck < _minimumCheckInterval) {
+          if (kDebugMode) {
+            print('Rate limiting driver status check: too frequent');
+          }
+          return true;
+        }
+      }
+
+      // Update the last check time
+      _lastCheckDriverStatusTime = now;
+      await prefs.setString('last_driver_status_check', now.toIso8601String());
+
+      // Not rate limited
+      return false;
+    } catch (e) {
+      if (kDebugMode) {
+        print('Error in rate limiting check: $e');
+      }
+      // Default to not rate limited on error
+      return false;
+    }
+  }
+
+  // Record a driver status check error
+  Future<void> _recordDriverStatusCheckError() async {
+    try {
+      final prefs = await SharedPreferences.getInstance();
+      
+      // Increment error count
+      _consecutiveErrors++;
+      await prefs.setInt('consecutive_errors', _consecutiveErrors);
+      
+      // Record error time
+      _lastErrorTime = DateTime.now();
+      await prefs.setString('last_error_time', _lastErrorTime!.toIso8601String());
+      
+      if (kDebugMode) {
+        print('Recorded driver status check error: $_consecutiveErrors consecutive errors');
+      }
+    } catch (e) {
+      if (kDebugMode) {
+        print('Error recording driver status error: $e');
+      }
+    }
+  }
+
+  // Reset consecutive errors on success
+  Future<void> _recordDriverStatusCheckSuccess() async {
+    try {
+      if (_consecutiveErrors > 0) {
+        final prefs = await SharedPreferences.getInstance();
+        _consecutiveErrors = 0;
+        await prefs.setInt('consecutive_errors', 0);
+        
+        if (kDebugMode) {
+          print('Reset consecutive errors after successful check');
+        }
+      }
+    } catch (e) {
+      if (kDebugMode) {
+        print('Error recording driver status success: $e');
+      }
+    }
+  }
+
   // Initialize local notifications separately
   Future<void> _initializeLocalNotifications() async {
     try {
@@ -119,16 +241,21 @@ class NotificationService {
         onDidReceiveNotificationResponse: _onDidReceiveNotificationResponse,
       );
 
-      // Create notification channel for Android
+      // Create notification channels for Android
       AndroidFlutterLocalNotificationsPlugin? androidImplementation =
           _flutterLocalNotificationsPlugin
               .resolvePlatformSpecificImplementation<
                   AndroidFlutterLocalNotificationsPlugin>();
 
       if (androidImplementation != null) {
-        await androidImplementation.createNotificationChannel(channel);
+        // Use the pre-defined channels from NotificationChannels class
+        await androidImplementation.createNotificationChannel(
+            NotificationChannels.ambulanceChannel);
+        await androidImplementation.createNotificationChannel(
+            NotificationChannels.medicineChannel);
+            
         if (kDebugMode) {
-          print("Notification channel created successfully");
+          print("Notification channels created successfully");
         }
       } else if (!kIsWeb && defaultTargetPlatform == TargetPlatform.android) {
         // Only report as an issue if we're on Android
@@ -177,7 +304,7 @@ class NotificationService {
     // Setup token refresh listener
     _firebaseMessaging.onTokenRefresh.listen((newToken) {
       if (kDebugMode) {
-        print('FCM token refreshed: $newToken');
+        print('FCM token refreshed: ${newToken.substring(0, 10)}...');
       }
       _saveFcmTokenWithErrorHandling();
     });
@@ -185,6 +312,11 @@ class NotificationService {
 
   Future<void> _saveFcmTokenWithErrorHandling() async {
     try {
+      // Check if we should rate limit this operation
+      if (await _shouldRateLimitDriverStatusCheck()) {
+        return;
+      }
+
       if (kDebugMode) {
         print("Attempting to get FCM token...");
       }
@@ -202,6 +334,7 @@ class NotificationService {
         if (kDebugMode) {
           print("Error getting FCM token: $tokenError");
         }
+        await _recordDriverStatusCheckError();
         // Wait and try again after a short delay
         await Future.delayed(const Duration(seconds: 2));
         try {
@@ -213,6 +346,7 @@ class NotificationService {
           if (kDebugMode) {
             print("Failed to get FCM token after retry: $retryError");
           }
+          await _recordDriverStatusCheckError();
           return; // Exit the function if we can't get a token
         }
       }
@@ -222,11 +356,12 @@ class NotificationService {
         if (kDebugMode) {
           print('Warning: FCM token is null or empty');
         }
+        await _recordDriverStatusCheckError();
         return;
       }
 
       if (kDebugMode) {
-        print('FCM Token obtained: $token');
+        print('FCM Token obtained: ${token.substring(0, 10)}...');
       }
 
       final user = FirebaseAuth.instance.currentUser;
@@ -260,11 +395,12 @@ class NotificationService {
                 'updatedAt': FieldValue.serverTimestamp(),
               },
               'updatedAt': FieldValue.serverTimestamp(),
+              'lastStatusCheck': FieldValue.serverTimestamp(),
             });
 
             if (kDebugMode) {
               print(
-                  'FCM Token updated in Firestore while preserving driver status: $token');
+                  'FCM Token updated in Firestore while preserving driver status');
             }
           } else {
             // Document doesn't exist, create it with isDriverActive set to false by default
@@ -300,22 +436,42 @@ class NotificationService {
                 },
                 'createdAt': FieldValue.serverTimestamp(),
                 'updatedAt': FieldValue.serverTimestamp(),
+                'lastStatusCheck': FieldValue.serverTimestamp(),
               });
 
               if (kDebugMode) {
                 print(
-                    'Created new driver document with FCM token and inactive status: $token');
+                    'Created new driver document with FCM token and inactive status');
               }
             } catch (innerError) {
               if (kDebugMode) {
                 print('Error creating driver document: $innerError');
               }
+              await _recordDriverStatusCheckError();
             }
           }
+          
+          // Operation succeeded, reset error count
+          await _recordDriverStatusCheckSuccess();
+          
+          // Register FCM token with server using ApiService
+          try {
+            await ApiService().registerFCMToken(token);
+            if (kDebugMode) {
+              print('FCM token registered with server');
+            }
+          } catch (apiError) {
+            if (kDebugMode) {
+              print('Error registering FCM token with server: $apiError');
+              print('Will continue as token is already saved in Firestore');
+            }
+          }
+          
         } catch (e) {
           if (kDebugMode) {
             print('Error saving FCM token to Firestore: $e');
           }
+          await _recordDriverStatusCheckError();
 
           // Save token to shared preferences as fallback
           final prefs = await SharedPreferences.getInstance();
@@ -334,6 +490,7 @@ class NotificationService {
       if (kDebugMode) {
         print('Error in _saveFcmTokenWithErrorHandling: $e');
       }
+      await _recordDriverStatusCheckError();
     }
   }
 
@@ -460,9 +617,9 @@ class NotificationService {
         // Create the Android notification details with actions
         final AndroidNotificationDetails androidPlatformChannelSpecifics =
             AndroidNotificationDetails(
-          'ambulance_requests',
-          'Ambulance Requests',
-          channelDescription: 'Notifications for new ambulance requests',
+          NotificationChannels.ambulanceChannel.id,
+          NotificationChannels.ambulanceChannel.name,
+          channelDescription: NotificationChannels.ambulanceChannel.description ?? '',
           importance: Importance.max,
           priority: Priority.high,
           showWhen: true,
@@ -481,8 +638,7 @@ class NotificationService {
 
         // Show the notification with action buttons
         await _flutterLocalNotificationsPlugin.show(
-          requestId
-              .hashCode, // Use requestId hash as notification ID to avoid duplicates
+          requestId.hashCode, // Use requestId hash as notification ID to avoid duplicates
           message.notification?.title ?? 'New Ambulance Request',
           message.notification?.body ?? 'You have a new ambulance request',
           platformChannelSpecifics,
@@ -560,18 +716,40 @@ class NotificationService {
         print("Attempting to show notification: $title");
       }
 
-      const AndroidNotificationDetails androidPlatformChannelSpecifics =
+      // Determine which channel to use based on the notification content
+      String channelId;
+      String channelName;
+      String channelDesc;
+      
+      // Determine the channel based on payload or title content
+      if (payload.containsKey('type') && payload['type'] == 'medication' ||
+          title.toLowerCase().contains('medicine') ||
+          title.toLowerCase().contains('medication')) {
+        // Use medicine channel
+        channelId = NotificationChannels.medicineChannel.id;
+        channelName = NotificationChannels.medicineChannel.name;
+        channelDesc = NotificationChannels.medicineChannel.description ?? '';
+      } else {
+        // Default to ambulance channel
+        channelId = NotificationChannels.ambulanceChannel.id;
+        channelName = NotificationChannels.ambulanceChannel.name;
+        channelDesc = NotificationChannels.ambulanceChannel.description ?? '';
+      }
+
+      final AndroidNotificationDetails androidPlatformChannelSpecifics =
           AndroidNotificationDetails(
-        'ambulance_requests',
-        'Ambulance Requests',
-        channelDescription: 'Notifications for new ambulance requests',
+        channelId,
+        channelName,
+        channelDescription: channelDesc,
         importance: Importance.max,
         priority: Priority.high,
         showWhen: true,
       );
+      
       const DarwinNotificationDetails iOSPlatformChannelSpecifics =
           DarwinNotificationDetails();
-      const NotificationDetails platformChannelSpecifics = NotificationDetails(
+          
+      final NotificationDetails platformChannelSpecifics = NotificationDetails(
         android: androidPlatformChannelSpecifics,
         iOS: iOSPlatformChannelSpecifics,
       );
@@ -936,24 +1114,42 @@ class NotificationService {
   }
 }
 
+// Background message handler with rate limiting
 @pragma('vm:entry-point')
-Future<void> _firebaseMessagingBackgroundHandler(RemoteMessage message) async {
+Future<void> firebaseMessagingBackgroundHandler(RemoteMessage message) async {
   try {
     // Initialize Firebase if not already initialized
     await Firebase.initializeApp();
 
     if (kDebugMode) {
       print('Handling a background message: ${message.messageId}');
-      print('Background message data: ${message.data}');
     }
+
+    // Rate limiting for background tasks
+    final prefs = await SharedPreferences.getInstance();
+    final lastCheckStr = prefs.getString('last_driver_status_check');
+    final now = DateTime.now();
+    
+    // Apply rate limiting to background handlers
+    if (lastCheckStr != null) {
+      final lastCheck = DateTime.parse(lastCheckStr);
+      final timeSince = now.difference(lastCheck);
+      
+      // If we checked too recently, skip this execution
+      if (timeSince < const Duration(minutes: 10)) {
+        if (kDebugMode) {
+          print('Rate limiting background task - checked too recently');
+        }
+        return;
+      }
+    }
+    
+    // Update last check time
+    await prefs.setString('last_driver_status_check', now.toIso8601String());
 
     // Store notification for history even in background
     try {
-      final prefs = await SharedPreferences.getInstance();
-
-      // Get current stored notifications or initialize empty list
-      final String notificationsJson =
-          prefs.getString('notification_history') ?? '[]';
+      final notificationsJson = prefs.getString('notification_history') ?? '[]';
       List<dynamic> notifications = [];
       try {
         notifications = jsonDecode(notificationsJson);
@@ -963,37 +1159,15 @@ Future<void> _firebaseMessagingBackgroundHandler(RemoteMessage message) async {
       }
 
       // Determine notification type
-      String type = 'general';
-      final data = message.data;
+      String type = message.data['type'] ?? 'general';
       final notification = message.notification;
 
-      // Try to detect notification type from various sources
-      if (data.containsKey('type')) {
-        type = data['type'];
-      } else if (data.containsKey('requestId')) {
-        type = 'ambulance_request';
-      } else if (notification?.title != null) {
-        final title = notification!.title!.toLowerCase();
-        if (title.contains('medicine') ||
-            title.contains('medication') ||
-            title.contains('dose') ||
-            title.contains('pill')) {
-          type = 'medication';
-        } else if (title.contains('appointment') || title.contains('doctor')) {
-          type = 'appointment';
-        } else if (title.contains('emergency') || title.contains('accident')) {
-          type = 'emergency';
-        }
-      }
-
-      // Create a notification record
+      // Create notification record with minimal data
       final Map<String, dynamic> notificationRecord = {
-        'id': message.messageId ??
-            DateTime.now().millisecondsSinceEpoch.toString(),
-        'title': message.notification?.title ?? 'New Notification',
-        'body': message.notification?.body,
-        'time': DateTime.now().toIso8601String(), 
-        'data': message.data,
+        'id': message.messageId ?? now.millisecondsSinceEpoch.toString(),
+        'title': notification?.title ?? 'New Notification',
+        'body': notification?.body,
+        'time': now.toIso8601String(), 
         'type': type,
       };
 
@@ -1018,12 +1192,9 @@ Future<void> _firebaseMessagingBackgroundHandler(RemoteMessage message) async {
       final String serverUrl = message.data['serverUrl'];
       if (serverUrl.isNotEmpty) {
         try {
-          // We can't directly use ApiService here because it might not be initialized
-          // So we'll just use SharedPreferences directly
-          final prefs = await SharedPreferences.getInstance();
           await prefs.setString('server_url', serverUrl);
           if (kDebugMode) {
-            print('Saved server URL from background message: $serverUrl');
+            print('Saved server URL from background message');
           }
         } catch (e) {
           if (kDebugMode) {

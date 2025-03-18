@@ -70,6 +70,7 @@ dependencies:
       ref: main
   flutter_local_notifications:
   image_picker:
+  rename_app:
   firebase_storage:
   flutter_launcher_icons: ^0.14.3
 

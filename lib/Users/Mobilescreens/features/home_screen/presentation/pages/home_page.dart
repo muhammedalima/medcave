@@ -6,7 +6,7 @@ import 'package:medcave/Users/Mobilescreens/commonWidget/quotewidget.dart';
 import 'package:medcave/Users/Mobilescreens/features/ambulance_tracking/presentation/pages/user/ambulance_status.dart';
 import 'package:medcave/Users/Mobilescreens/features/ambulance_tracking/presentation/pages/user/ambulance_user_page.dart';
 import 'package:medcave/Users/Mobilescreens/features/ambulance_tracking/presentation/pages/user/list_ambulancerequest.dart';
-import 'package:medcave/Users/Mobilescreens/features/home_screen/widget/ShowCamerScreen.dart';
+import 'package:medcave/Users/Mobilescreens/features/home_screen/widget/popup_alternate.dart';
 import 'package:medcave/Users/Mobilescreens/features/home_screen/widget/botton_arrow.dart';
 import 'package:medcave/Users/Mobilescreens/features/home_screen/widget/buttonambulanceserach.dart';
 import 'package:medcave/Users/Mobilescreens/features/home_screen/widget/home_app_bar.dart';
@@ -137,6 +137,18 @@ class _HomePageState extends State<HomePage> {
       );
     }
   }
+  
+  // Show the alternate medicine finder popup
+  void _showAlternateMedicineFinder() {
+    showModalBottomSheet(
+      context: context,
+      isScrollControlled: true,
+      backgroundColor: Colors.transparent,
+      builder: (BuildContext context) => const SafeArea(
+        child: AlternateMedicineFinder(),
+      ),
+    );
+  }
 
   @override
   Widget build(BuildContext context) {
@@ -222,9 +234,9 @@ class _HomePageState extends State<HomePage> {
 
                       const SizedBox(height: 15),
 
-                      // Drug finder section - Now clickable
+                      // Drug finder section - Now correctly shows the popup
                       GestureDetector(
-                        onTap: () => showCameraScreen(context),
+                        onTap: _showAlternateMedicineFinder,
                         child: Container(
                           decoration: BoxDecoration(
                             color: Colors.white,
@@ -238,12 +250,12 @@ class _HomePageState extends State<HomePage> {
                               ),
                             ],
                           ),
-                          child: const Padding(
-                            padding: EdgeInsets.all(10.0),
+                          child: Padding(
+                            padding: const EdgeInsets.all(10.0),
                             child: Row(
                               mainAxisAlignment: MainAxisAlignment.spaceBetween,
                               children: [
-                                Column(
+                                const Column(
                                   crossAxisAlignment: CrossAxisAlignment.start,
                                   children: [
                                     Text(
@@ -264,6 +276,7 @@ class _HomePageState extends State<HomePage> {
                                 ),
                                 Buttonarrrowicon(
                                   rotateAngle: 1.6,
+                                  // Set destination to null because we're handling the tap in GestureDetector
                                   destination: null,
                                 ),
                               ],
@@ -271,6 +284,7 @@ class _HomePageState extends State<HomePage> {
                           ),
                         ),
                       ),
+
                       WaveyMessage(
                         message: 'Your Health \n Our Care',
                       ),

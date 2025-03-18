@@ -6,7 +6,7 @@ import 'package:google_nav_bar/google_nav_bar.dart';
 import 'package:medcave/Users/Mobilescreens/features/ambulance_tracking/presentation/pages/driver/driverwrapper.dart';
 import 'package:medcave/config/colors/appcolor.dart';
 import 'package:medcave/Users/Mobilescreens/features/home_screen/presentation/pages/home_page.dart';
-import 'package:medcave/Users/Mobilescreens/features/personal_profile/presentation/pages/profile_page.dart';
+import 'package:medcave/Users/Mobilescreens/features/personal_profile/features/profilepage/profile_page.dart';
 import 'package:firebase_auth/firebase_auth.dart';
 import 'package:cloud_firestore/cloud_firestore.dart';
 

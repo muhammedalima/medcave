@@ -506,7 +506,7 @@ class MedicineNotificationManager {
     }
   }
 
-  // Schedule a daily notification with pending notification support
+  // Schedule a daily notification with improved temporary storage
   Future<int?> _scheduleDaily(
     int id,
     String title,
@@ -556,7 +556,7 @@ class MedicineNotificationManager {
         scheduledTZDate = tz.TZDateTime.from(scheduledDate, _localTimeZone);
       }
 
-      // Schedule the notification
+      // Schedule the notification with the plugin
       await _notificationsPlugin.zonedSchedule(
         id,
         title,
@@ -570,10 +570,25 @@ class MedicineNotificationManager {
         payload: payload,
       );
 
-      // IMPORTANT CHANGE: Add to pending notifications in MedicineNotificationService
-      // This will show up immediately in the UI but will move to history when scheduled time is reached
-      await _addMedicineToPendingNotifications(
-          title, body, payload, scheduledTZDate.toLocal());
+      // Extract the medicine name from title
+      final String medicineName = _extractMedicineName(title);
+
+      // Get the timing context (morning, afternoon, evening)
+      final String timingContext = _getTimingContextFromPayload(payload);
+
+      // Add or update in scheduled notifications using the correct method name
+      // FIXED: Changed from addPendingNotification to addOrUpdatePendingNotification
+      await MedicineNotificationService.addOrUpdatePendingNotification(
+        medicineName: medicineName,
+        body: body,
+        timing: timingContext,
+        scheduledTime: scheduledTZDate.toLocal(),
+      );
+
+      if (kDebugMode) {
+        print(
+            'Scheduled notification for $medicineName at ${scheduledTZDate.toLocal()}');
+      }
 
       return id;
     } catch (e) {
@@ -581,6 +596,31 @@ class MedicineNotificationManager {
         print('Error scheduling daily notification: $e');
       }
       return null;
+    }
+  }
+
+  // Helper method to extract medicine name from notification title
+  String _extractMedicineName(String title) {
+    if (title.contains('Time to take your')) {
+      return title.replaceAll('Time to take your', '').trim();
+    } else if (title.contains('dose')) {
+      // If the title has format "Time to take your morning dose", extract just the medicine name
+      return title;
+    } else {
+      return title.trim();
+    }
+  }
+
+  // Helper method to get timing context from payload
+  String _getTimingContextFromPayload(String payload) {
+    if (payload.contains('breakfast') || payload.contains('morning')) {
+      return 'morning';
+    } else if (payload.contains('lunch') || payload.contains('afternoon')) {
+      return 'afternoon';
+    } else if (payload.contains('dinner') || payload.contains('evening')) {
+      return 'evening';
+    } else {
+      return payload; // Use payload as fallback
     }
   }
 
@@ -592,7 +632,7 @@ class MedicineNotificationManager {
       String cleanMedicineName = medicineName;
 
       // Add to pending notifications through the MedicineNotificationService
-      await MedicineNotificationService.addPendingNotification(
+      await MedicineNotificationService.addOrUpdatePendingNotification(
           medicineName: cleanMedicineName,
           body: body,
           timing: timing,

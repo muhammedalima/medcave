@@ -4,6 +4,7 @@ import 'package:flutter/material.dart';
 import 'package:cloud_firestore/cloud_firestore.dart';
 import 'package:firebase_auth/firebase_auth.dart';
 import 'package:medcave/config/colors/appcolor.dart';
+import 'package:medcave/common/googlemapfunction/location_update.dart'; // Import the location service
 
 class AmbulanceSlider extends StatefulWidget {
   final Function(bool isActive) onSlideComplete;
@@ -19,8 +20,8 @@ class AmbulanceSlider extends StatefulWidget {
     required this.onSlideComplete,
     this.textInactive = 'Slide to take ride',
     this.textActive = 'Ready to take ride',
-    this.primaryColor = AppColor.primaryGreen, // Yellow background
-    this.secondaryColor = AppColor.darkBlack, // Dark background
+    this.primaryColor = AppColor.primaryGreen,
+    this.secondaryColor = AppColor.darkBlack,
     this.driverId,
     this.initialValue = false,
   }) : super(key: key);
@@ -38,6 +39,9 @@ class _AmbulanceSliderState extends State<AmbulanceSlider> {
   bool _isUpdatingFirebase = false;
   bool _listeningToFirebase = false;
   StreamSubscription<DocumentSnapshot>? _driverStatusSubscription;
+
+  // Location service instance
+  final DriverLocationService _locationService = DriverLocationService();
 
   @override
   void initState() {
@@ -63,29 +67,18 @@ class _AmbulanceSliderState extends State<AmbulanceSlider> {
     if (_driverId.isNotEmpty) {
       _setupFirebaseListener();
     }
+
+    // Initialize location service
+    _initializeLocationService();
   }
 
-  @override
-  void didUpdateWidget(AmbulanceSlider oldWidget) {
-    super.didUpdateWidget(oldWidget);
-
-    // If initialValue changed from parent, update slider state
-    if (widget.initialValue != oldWidget.initialValue &&
-        widget.initialValue != _isComplete) {
-      setState(() {
-        _isComplete = widget.initialValue;
-        final screenWidth = MediaQuery.of(context).size.width;
-        final sliderWidth = screenWidth;
-        final buttonWidth = 80.0;
-        _position = _isComplete ? sliderWidth - buttonWidth : 0;
-      });
+  // Initialize location service
+  Future<void> _initializeLocationService() async {
+    try {
+      await _locationService.initialize();
+    } catch (e) {
+      debugPrint('Error initializing location service: $e');
     }
-  }
-
-  @override
-  void dispose() {
-    _driverStatusSubscription?.cancel();
-    super.dispose();
   }
 
   void _setupFirebaseListener() {
@@ -123,7 +116,15 @@ class _AmbulanceSliderState extends State<AmbulanceSlider> {
     });
   }
 
-  // Function to update driver status in Firestore
+  @override
+  void dispose() {
+    _driverStatusSubscription?.cancel();
+    super.dispose();
+  }
+
+  // Rest of the existing methods remain the same...
+
+  // Modify the _updateDriverStatus method to integrate location service
   Future<void> _updateDriverStatus(bool isActive) async {
     if (_driverId.isEmpty) {
       debugPrint('Error: Driver ID not available');
@@ -146,6 +147,21 @@ class _AmbulanceSliderState extends State<AmbulanceSlider> {
 
       debugPrint(
           'Driver status updated in Firestore: isDriverActive = $isActive');
+
+      // Integrate with location service
+      if (isActive) {
+        // Start location updates when driver becomes active
+        await _locationService.setDriverActiveStatus(true);
+
+        // Force an immediate location update
+        await _locationService.updateLocationNow();
+      } else {
+        // Stop location updates when driver becomes inactive
+        await _locationService.setDriverActiveStatus(false);
+      }
+
+      // Notify parent of status change
+      widget.onSlideComplete(isActive);
     } catch (e) {
       debugPrint('Error updating driver status: $e');
       // If there's an error, revert the UI
@@ -167,6 +183,7 @@ class _AmbulanceSliderState extends State<AmbulanceSlider> {
     }
   }
 
+  // Modify _toggleSliderState to use the new _updateDriverStatus method
   void _toggleSliderState() {
     if (_isUpdatingFirebase) return;
 
@@ -179,15 +196,16 @@ class _AmbulanceSliderState extends State<AmbulanceSlider> {
       _position = newState ? sliderWidth - buttonWidth : 0;
     });
 
-    // Update Firestore
+    // Update Firestore and location service
     _updateDriverStatus(newState).then((_) {
       widget.onSlideComplete(newState);
     });
   }
 
+  // The rest of the build method and other methods remain the same as in the original code
   @override
   Widget build(BuildContext context) {
-    // Updated dimensions to precisely match the provided images
+    // Existing build method code remains unchanged
     final screenWidth = MediaQuery.of(context).size.width;
     final sliderWidth = screenWidth - 16;
     final buttonWidth = 64.0;

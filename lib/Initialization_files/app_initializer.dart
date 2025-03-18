@@ -1,5 +1,4 @@
 // File: lib/common/initialization/app_initializer.dart
-// Updated to initialize MedicineNotificationService
 
 import 'package:firebase_auth/firebase_auth.dart';
 import 'package:firebase_core/firebase_core.dart';
@@ -37,19 +36,25 @@ class AppInitializer {
       // 2. Initialize local notifications (high priority)
       await _initializeLocalNotifications();
 
-      // 3. Create notification channels (high priority for Android)
+      // 3. Initialize background tasks (make sure this returns void or Future<void>)
+      initializeBackgroundTasks();
+
+      // 4. Create notification channels (high priority for Android)
       await _createNotificationChannels();
 
-      // 4. Request notification permissions (high priority)
+      // 5. Request notification permissions (high priority)
       await _requestNotificationPermissions();
 
-      // 5. Set up foreground message handling (high priority)
+      // 6. Set up foreground message handling (high priority)
       _setupForegroundMessageHandling();
+
+      // 7. Initialize FCM token management and register listener for token refreshes
+      _initializeFCMTokenManagement();
 
       // Start API service initialization in parallel but don't wait for completion
       _initializeApiServiceInBackground();
 
-      // 6. Initialize background tasks (lower priority)
+      // 8. Initialize background tasks (lower priority)
       try {
         BackgroundTasks.initialize();
         if (kDebugMode) {
@@ -62,7 +67,7 @@ class AppInitializer {
         }
       }
 
-      // 7. Initialize medicine notification service (high priority)
+      // 9. Initialize medicine notification service (high priority)
       await _initializeWithTimeout<void>(
         () => _initializeMedicineNotificationSystem(),
         'Medicine notification system initialization',
@@ -79,6 +84,120 @@ class AppInitializer {
       }
       // Rethrow to be caught in main
       rethrow;
+    }
+  }
+
+  // Initialize FCM token management
+  static void _initializeFCMTokenManagement() {
+    try {
+      if (kDebugMode) {
+        print("Initializing FCM token management...");
+      }
+
+      // Register auth state changes to handle token registration when user logs in
+      FirebaseAuth.instance.authStateChanges().listen((User? user) async {
+        if (user != null) {
+          // User logged in, register current FCM token with server
+          await _registerFCMTokenWithServer();
+        }
+      });
+
+      // Listen for token refreshes
+      FirebaseMessaging.instance.onTokenRefresh.listen((String newToken) {
+        if (kDebugMode) {
+          print("FCM token refreshed: ${newToken.substring(0, 10)}...");
+        }
+
+        // Register the new token with our server
+        _registerFCMTokenWithServer();
+      });
+
+      // Get initial token and register it
+      _registerFCMTokenWithServer();
+
+      if (kDebugMode) {
+        print("FCM token management initialized successfully");
+      }
+    } catch (e) {
+      if (kDebugMode) {
+        print("Error initializing FCM token management: $e");
+        print("App will continue with limited notification capability");
+      }
+    }
+  }
+
+  // Register FCM token with our server
+  static Future<void> _registerFCMTokenWithServer() async {
+    try {
+      // Check if user is logged in
+      final user = FirebaseAuth.instance.currentUser;
+      if (user == null) {
+        if (kDebugMode) {
+          print("No user logged in, skipping FCM token registration");
+        }
+        return;
+      }
+
+      // Get current FCM token
+      final token = await FirebaseMessaging.instance.getToken();
+      if (token == null) {
+        if (kDebugMode) {
+          print("FCM token is null, skipping registration");
+        }
+        return;
+      }
+
+      if (kDebugMode) {
+        print(
+            "Registering FCM token with server: ${token.substring(0, 10)}...");
+      }
+
+      // Create a sanitized driver document in Firestore (if it doesn't exist)
+      // This ensures the driver document exists before the server tries to update it
+      await _ensureDriverDocumentExists(user.uid);
+
+      // Register token with server
+      await ApiService().registerFCMToken(token);
+
+      if (kDebugMode) {
+        print("FCM token registered successfully with server");
+      }
+    } catch (e) {
+      if (kDebugMode) {
+        print("Error registering FCM token with server: $e");
+        print("Will retry on next app launch or token refresh");
+      }
+    }
+  }
+
+  // Ensure driver document exists in Firestore
+  static Future<void> _ensureDriverDocumentExists(String userId) async {
+    try {
+      // Reference to driver document
+      final driverRef =
+          FirebaseFirestore.instance.collection('drivers').doc(userId);
+
+      // Check if the document exists
+      final docSnapshot = await driverRef.get();
+
+      if (!docSnapshot.exists) {
+        // Create the driver document with default values
+        await driverRef.set({
+          'isDriverActive': false, // Default to inactive
+          'createdAt': FieldValue.serverTimestamp(),
+          'lastActive': FieldValue.serverTimestamp(),
+          // Don't set FCM token here as it will be set by the server
+        });
+
+        if (kDebugMode) {
+          print("Created new driver document for user: $userId");
+        }
+      }
+    } catch (e) {
+      if (kDebugMode) {
+        print("Error ensuring driver document exists: $e");
+      }
+      // Don't throw the error - this is a best-effort operation
     }
   }
 
@@ -253,10 +372,10 @@ class AppInitializer {
             'Notification permission status: ${settings.authorizationStatus}');
       }
 
-      // Get FCM token
+      // Get FCM token - but don't register it here, we'll do that in _initializeFCMTokenManagement
       final token = await messaging.getToken();
-      if (kDebugMode) {
-        print('FCM Token: $token');
+      if (kDebugMode && token != null) {
+        print('FCM Token: ${token.substring(0, 10)}...');
       }
     } catch (e) {
       if (kDebugMode) {
@@ -348,6 +467,11 @@ class AppInitializer {
           print('Message notification: ${message.notification?.title}');
         }
 
+        // Check if the message contains a serverUrl and update it
+        if (message.data.containsKey('serverUrl')) {
+          ApiService.updateServerUrlFromNotification(message.data);
+        }
+
         // Show a local notification if message contains a notification
         if (message.notification != null) {
           final notification = message.notification;
@@ -400,6 +524,10 @@ class AppInitializer {
       FirebaseMessaging.onMessageOpenedApp.listen((RemoteMessage message) {
         if (kDebugMode) {
           print('Message opened from background state: ${message.messageId}');
+        }
+        // Check if the message contains a serverUrl and update it
+        if (message.data.containsKey('serverUrl')) {
+          ApiService.updateServerUrlFromNotification(message.data);
         }
         // Handle notification tap when app in background
       });

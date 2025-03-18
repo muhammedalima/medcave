@@ -1,57 +1,37 @@
 <manifest xmlns:android="http://schemas.android.com/apk/res/android">
     <!-- Standard permissions -->
-    <uses-permission android:name="android.permission.ACCESS_FINE_LOCATION" />
-    <uses-permission android:name="android.permission.ACCESS_COARSE_LOCATION" />
-    <uses-permission android:name="android.permission.ACCESS_BACKGROUND_LOCATION" />
-    <uses-permission android:name="android.permission.WAKE_LOCK" />
-    <uses-permission android:name="android.permission.INTERNET" />
-    <uses-permission android:name="android.permission.ACCESS_NETWORK_STATE" />
-    <uses-permission android:name="android.permission.FOREGROUND_SERVICE" />
+    <uses-permission android:name="android.permission.ACCESS_FINE_LOCATION"/>
+    <uses-permission android:name="android.permission.ACCESS_COARSE_LOCATION"/>
+    <uses-permission android:name="android.permission.ACCESS_BACKGROUND_LOCATION"/>
+    <uses-permission android:name="android.permission.WAKE_LOCK"/>
+    <uses-permission android:name="android.permission.INTERNET"/>
+    <uses-permission android:name="android.permission.ACCESS_NETWORK_STATE"/>
+    <uses-permission android:name="android.permission.FOREGROUND_SERVICE"/>
     <uses-permission android:name="android.permission.RECORD_AUDIO"/>
     <uses-permission android:name="android.permission.RECEIVE_BOOT_COMPLETED"/>
+    <uses-permission android:name="android.permission.FOREGROUND_SERVICE_LOCATION" />
     
     <!-- Notification permissions for Android 13+ -->
     <uses-permission android:name="android.permission.POST_NOTIFICATIONS"/>
     <!-- Vibration permission for notifications -->
-    <uses-permission android:name="android.permission.VIBRATE" />
+    <uses-permission android:name="android.permission.VIBRATE"/>
     <!-- Schedule exact alarms for medicine notifications -->
-    <uses-permission android:name="android.permission.SCHEDULE_EXACT_ALARM" />
+    <uses-permission android:name="android.permission.SCHEDULE_EXACT_ALARM"/>
  
-    <application
-        android:label="medcave"
-        android:name="${applicationName}"
-        android:icon="@mipmap/ic_launcher"
-        android:usesCleartextTraffic="true">
+    <application android:label="MedCave" android:name="${applicationName}" android:icon="@mipmap/ic_launcher" android:usesCleartextTraffic="true">
         
         <!-- Add this for multidex support -->
-        <meta-data
-            android:name="android.support.multidex.MultiDexApplication"
-            android:value="true" />
+        <meta-data android:name="android.support.multidex.MultiDexApplication" android:value="true"/>
             
         <!-- Disable Impeller -->
-        <meta-data
-            android:name="io.flutter.embedding.android.EnableImpeller"
-            android:value="false" />
+        <meta-data android:name="io.flutter.embedding.android.EnableImpeller" android:value="false"/>
             
         <!-- Firebase notification channel -->
-        <meta-data
-            android:name="com.google.firebase.messaging.default_notification_channel_id"
-            android:value="ambulance_requests" />
+        <meta-data android:name="com.google.firebase.messaging.default_notification_channel_id" android:value="ambulance_requests"/>
             
-        <activity
-            android:name=".MainActivity"
-            android:exported="true"
-            android:launchMode="singleTop"
-            android:taskAffinity=""
-            android:theme="@style/LaunchTheme"
-            android:configChanges="orientation|keyboardHidden|keyboard|screenSize|smallestScreenSize|locale|layoutDirection|fontScale|screenLayout|density|uiMode"
-            android:hardwareAccelerated="true"
-            android:windowSoftInputMode="adjustResize">
+        <activity android:name=".MainActivity" android:exported="true" android:launchMode="singleTop" android:taskAffinity="" android:theme="@style/LaunchTheme" android:configChanges="orientation|keyboardHidden|keyboard|screenSize|smallestScreenSize|locale|layoutDirection|fontScale|screenLayout|density|uiMode" android:hardwareAccelerated="true" android:windowSoftInputMode="adjustResize">
             
-            <meta-data
-              android:name="io.flutter.embedding.android.NormalTheme"
-              android:resource="@style/NormalTheme"
-              />
+            <meta-data android:name="io.flutter.embedding.android.NormalTheme" android:resource="@style/NormalTheme"/>
               
             <intent-filter>
                 <action android:name="android.intent.action.MAIN"/>
@@ -60,59 +40,47 @@
             
             <!-- Deep link intent filter -->
             <intent-filter>
-                <action android:name="android.intent.action.VIEW" />
-                <category android:name="android.intent.category.DEFAULT" />
-                <category android:name="android.intent.category.BROWSABLE" />
-                <data android:scheme="medcave" android:host="ambulance" />
+                <action android:name="android.intent.action.VIEW"/>
+                <category android:name="android.intent.category.DEFAULT"/>
+                <category android:name="android.intent.category.BROWSABLE"/>
+                <data android:scheme="medcave" android:host="ambulance"/>
             </intent-filter>
             
             <!-- FCM notification click handling -->
             <intent-filter>
-                <action android:name="FLUTTER_NOTIFICATION_CLICK" />
-                <category android:name="android.intent.category.DEFAULT" />
+                <action android:name="FLUTTER_NOTIFICATION_CLICK"/>
+                <category android:name="android.intent.category.DEFAULT"/>
             </intent-filter>
         </activity>
         
         <!-- Flutter embedding -->
-        <meta-data
-            android:name="flutterEmbedding"
-            android:value="2" />
+        <meta-data android:name="flutterEmbedding" android:value="2"/>
             
         <!-- Google Maps API key -->
-        <meta-data 
-            android:name="com.google.android.geo.API_KEY"
-            android:value="AIzaSyCoEDgDwEhSkLs_bhWmPzErJa7imkZ6EiA"/>
+        <meta-data android:name="com.google.android.geo.API_KEY" android:value="AIzaSyCoEDgDwEhSkLs_bhWmPzErJa7imkZ6EiA"/>
             
         <!-- Firebase Service for notifications while app is in background -->
-        <service
-            android:name="io.flutter.plugins.firebase.messaging.FlutterFirebaseMessagingService"
-            android:exported="false">
+        <service android:name="io.flutter.plugins.firebase.messaging.FlutterFirebaseMessagingService" android:exported="false">
             <intent-filter>
-                <action android:name="com.google.firebase.MESSAGING_EVENT" />
+                <action android:name="com.google.firebase.MESSAGING_EVENT"/>
             </intent-filter>
         </service>
         
         <!-- Receiver for scheduled notifications -->
-        <receiver 
-            android:name="com.dexterous.flutterlocalnotifications.ScheduledNotificationReceiver" 
-            android:exported="false" />
+        <receiver android:name="com.dexterous.flutterlocalnotifications.ScheduledNotificationReceiver" android:exported="false"/>
             
         <!-- Receiver for device boot to restore scheduled notifications -->
-        <receiver 
-            android:name="com.dexterous.flutterlocalnotifications.ScheduledNotificationBootReceiver"
-            android:exported="true">
+        <receiver android:name="com.dexterous.flutterlocalnotifications.ScheduledNotificationBootReceiver" android:exported="true">
             <intent-filter>
                 <action android:name="android.intent.action.BOOT_COMPLETED"/>
                 <action android:name="android.intent.action.MY_PACKAGE_REPLACED"/>
-                <action android:name="android.intent.action.QUICKBOOT_POWERON" />
+                <action android:name="android.intent.action.QUICKBOOT_POWERON"/>
                 <action android:name="com.htc.intent.action.QUICKBOOT_POWERON"/>
             </intent-filter>
         </receiver>
         
         <!-- AlarmManager for medicine notifications -->
-        <receiver 
-            android:name="com.dexterous.flutterlocalnotifications.AlarmBroadcastReceiver" 
-            android:exported="false"/>
+        <receiver android:name="com.dexterous.flutterlocalnotifications.AlarmBroadcastReceiver" android:exported="false"/>
     </application>
     
     <!-- Required to query activities that can process text -->

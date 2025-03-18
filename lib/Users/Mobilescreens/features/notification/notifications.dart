@@ -56,13 +56,18 @@ class _NotificationsScreenState extends State<NotificationsScreen> {
     });
 
     try {
-      // Try to get notifications from the MedicineNotificationService
+      // Get notifications from the MedicineNotificationService
       List<Map<String, dynamic>> notifications = [];
 
       try {
-        // Use MedicineNotificationService if available
+        // Use MedicineNotificationService to get combined history and scheduled notifications
         notifications =
             await MedicineNotificationService.getNotificationHistory();
+
+        if (kDebugMode) {
+          print(
+              'Loaded ${notifications.length} notifications from MedicineNotificationService');
+        }
       } catch (e) {
         // Fallback to direct SharedPreferences access
         if (kDebugMode) {
@@ -96,17 +101,12 @@ class _NotificationsScreenState extends State<NotificationsScreen> {
         }).toList();
       }
 
-      // Process notifications to ensure proper type identification
-      // and remove duplicates (based on title and timestamp)
-      final processedNotifications =
-          _removeDuplicateMedicineNotifications(notifications);
-
       // Sort by time (newest first)
-      processedNotifications.sort(
+      notifications.sort(
           (a, b) => (b['time'] as DateTime).compareTo(a['time'] as DateTime));
 
       setState(() {
-        _notifications = processedNotifications;
+        _notifications = notifications;
         _isLoading = false;
       });
     } catch (e) {
@@ -326,7 +326,6 @@ class _NotificationsScreenState extends State<NotificationsScreen> {
   // Format time for scheduled notifications
   String _formatScheduledTime(DateTime scheduledTime) {
     final now = DateTime.now();
-    final difference = scheduledTime.difference(now);
 
     // If it's today
     if (scheduledTime.year == now.year &&
@@ -335,13 +334,12 @@ class _NotificationsScreenState extends State<NotificationsScreen> {
       return 'Today at ${DateFormat('hh:mm a').format(scheduledTime)}';
     }
     // If it's tomorrow
-    else if (scheduledTime.year == now.year &&
-        scheduledTime.month == now.month &&
+    else if (scheduledTime.difference(now).inDays < 1 &&
         scheduledTime.day == now.day + 1) {
       return 'Tomorrow at ${DateFormat('hh:mm a').format(scheduledTime)}';
     }
     // If it's within the next 7 days
-    else if (difference.inDays < 7) {
+    else if (scheduledTime.difference(now).inDays < 7) {
       return '${DateFormat('EEEE').format(scheduledTime)} at ${DateFormat('hh:mm a').format(scheduledTime)}';
     }
     // If it's beyond 7 days
@@ -573,7 +571,6 @@ class _NotificationsScreenState extends State<NotificationsScreen> {
     }
   }
 
-  // Render a notification item with pending support
   Widget _renderNotificationItem(Map<String, dynamic> notification) {
     final bool isPending = notification['isPending'] == true ||
         notification['status'] == 'pending';

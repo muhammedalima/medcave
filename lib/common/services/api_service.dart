@@ -5,7 +5,7 @@ import 'package:firebase_auth/firebase_auth.dart';
 import 'package:shared_preferences/shared_preferences.dart';
 
 class ApiService {
-  // Updated default value to your server URL
+  // Default server URL - matches the server.js file
   static String baseUrl = 'https://medcave-server.onrender.com';
   static bool _isInitialized = false;
 
@@ -14,7 +14,7 @@ class ApiService {
     try {
       // If already initialized, return immediately
       if (_isInitialized) return;
-      
+
       final prefs = await SharedPreferences.getInstance();
       final savedUrl = prefs.getString('server_url');
 
@@ -31,10 +31,10 @@ class ApiService {
           print('No saved server URL found, using default: $baseUrl');
         }
       }
-      
+
       // Mark as initialized even if the connection test fails
       _isInitialized = true;
-      
+
       // Test connection in the background without blocking initialization
       _testConnection();
     } catch (e) {
@@ -46,14 +46,14 @@ class ApiService {
       _isInitialized = true;
     }
   }
-  
+
   // Test connection without blocking initialization
   static Future<void> _testConnection() async {
     try {
       if (kDebugMode) {
         print('Testing connection to server URL: $baseUrl');
       }
-      
+
       // Attempt to connect with a longer timeout
       final response = await http
           .get(
@@ -64,10 +64,12 @@ class ApiService {
       if (response.statusCode == 200) {
         if (kDebugMode) {
           print('Connection to server successful');
+          print('Server info: ${response.body}');
         }
       } else {
         if (kDebugMode) {
           print('Server returned error status: ${response.statusCode}');
+          print('Response body: ${response.body}');
         }
       }
     } catch (e) {
@@ -82,6 +84,11 @@ class ApiService {
   static Future<void> setServerUrl(String url) async {
     if (url.isEmpty) return;
 
+    // Ensure URL has proper format with http/https
+    if (!url.startsWith('http://') && !url.startsWith('https://')) {
+      url = 'https://$url';
+    }
+
     baseUrl = url;
     final prefs = await SharedPreferences.getInstance();
     await prefs.setString('server_url', url);
@@ -89,6 +96,9 @@ class ApiService {
     if (kDebugMode) {
       print('Server URL updated and saved: $baseUrl');
     }
+
+    // Test connection to the new URL
+    _testConnection();
   }
 
   // Update the server URL from FCM notification payload
@@ -101,13 +111,28 @@ class ApiService {
     }
   }
 
+  // Get user authentication token
+  static Future<String?> _getAuthToken() async {
+    final user = FirebaseAuth.instance.currentUser;
+    if (user == null) throw Exception('User not authenticated');
+
+    try {
+      return await user.getIdToken();
+    } catch (e) {
+      if (kDebugMode) {
+        print('Error getting auth token: $e');
+      }
+      throw Exception('Failed to get authentication token');
+    }
+  }
+
   // Get server info to verify connection and update configuration
   Future<Map<String, dynamic>> getServerInfo() async {
     try {
       if (kDebugMode) {
         print('Fetching server info from: $baseUrl/api/server-info');
       }
-      
+
       final response = await http
           .get(
             Uri.parse('$baseUrl/api/server-info'),
@@ -147,26 +172,30 @@ class ApiService {
         print('Notifying drivers for request: $requestId');
         print('Using server URL: $baseUrl');
       }
-      
-      final user = FirebaseAuth.instance.currentUser;
-      if (user == null) throw Exception('User not authenticated');
 
-      final token = await user.getIdToken();
-      final response = await http.post(
-        Uri.parse('$baseUrl/api/notify-drivers'),
-        headers: {
-          'Content-Type': 'application/json',
-          'Authorization': 'Bearer $token',
-        },
-        body: jsonEncode({'requestId': requestId}),
-      ).timeout(const Duration(seconds: 30)); // Increased timeout for Render
+      // Get auth token
+      final token = await _getAuthToken();
+
+      final response = await http
+          .post(
+            Uri.parse('$baseUrl/api/notify-drivers'),
+            headers: {
+              'Content-Type': 'application/json',
+              'Authorization': 'Bearer $token',
+            },
+            body: jsonEncode({'requestId': requestId}),
+          )
+          .timeout(const Duration(seconds: 30)); // Increased timeout for Render
 
       if (response.statusCode != 200) {
-        throw Exception('Failed to notify drivers: ${response.body}');
+        final errorData = jsonDecode(response.body);
+        throw Exception(
+            'Failed to notify drivers: ${errorData['error'] ?? response.body}');
       }
-      
+
       if (kDebugMode) {
         print('Drivers notified successfully');
+        print('Response: ${response.body}');
       }
     } catch (e) {
       if (kDebugMode) {
@@ -178,10 +207,9 @@ class ApiService {
 
   Future<Map<String, dynamic>> getNotificationStatus(String requestId) async {
     try {
-      final user = FirebaseAuth.instance.currentUser;
-      if (user == null) throw Exception('User not authenticated');
+      // Get auth token
+      final token = await _getAuthToken();
 
-      final token = await user.getIdToken();
       final response = await http.get(
         Uri.parse('$baseUrl/api/notification-status/$requestId'),
         headers: {
@@ -192,7 +220,9 @@ class ApiService {
       if (response.statusCode == 200) {
         return jsonDecode(response.body);
       } else {
-        throw Exception('Failed to get notification status: ${response.body}');
+        final errorData = jsonDecode(response.body);
+        throw Exception(
+            'Failed to get notification status: ${errorData['error'] ?? response.body}');
       }
     } catch (e) {
       if (kDebugMode) {
@@ -202,16 +232,15 @@ class ApiService {
     }
   }
 
-  Future<void> expandRadius(String requestId) async {
+  Future<Map<String, dynamic>> expandRadius(String requestId) async {
     try {
       if (kDebugMode) {
         print('Expanding radius for request: $requestId');
       }
-      
-      final user = FirebaseAuth.instance.currentUser;
-      if (user == null) throw Exception('User not authenticated');
 
-      final token = await user.getIdToken();
+      // Get auth token
+      final token = await _getAuthToken();
+
       final response = await http.post(
         Uri.parse('$baseUrl/api/expand-radius/$requestId'),
         headers: {
@@ -219,18 +248,64 @@ class ApiService {
         },
       ).timeout(const Duration(seconds: 30)); // Increased timeout for Render
 
-      if (response.statusCode != 200) {
-        throw Exception('Failed to expand radius: ${response.body}');
-      }
-      
-      if (kDebugMode) {
-        print('Radius expanded successfully');
+      if (response.statusCode == 200) {
+        final responseData = jsonDecode(response.body);
+        if (kDebugMode) {
+          print(
+              'Radius expanded successfully to ${responseData['newRadius']}km');
+        }
+        return responseData;
+      } else {
+        final errorData = jsonDecode(response.body);
+        throw Exception(
+            'Failed to expand radius: ${errorData['error'] ?? response.body}');
       }
     } catch (e) {
       if (kDebugMode) {
         print('Error expanding radius: $e');
       }
       rethrow;
+    }
+  }
+
+  // Register FCM token with the server
+  Future<void> registerFCMToken(String fcmToken) async {
+    try {
+      if (kDebugMode) {
+        print('Registering FCM token with server: $fcmToken');
+      }
+
+      // Get current user
+      final user = FirebaseAuth.instance.currentUser;
+      if (user == null) throw Exception('User not authenticated');
+
+      // Get auth token
+      final token = await _getAuthToken();
+
+      // Update the token in Firestore directly
+      // (this assumes you have a 'drivers' collection with the user's UID as the document ID)
+      // Note: This would typically be done through a server endpoint, but this is a direct approach
+      await http
+          .post(
+            Uri.parse('$baseUrl/api/update-fcm-token'),
+            headers: {
+              'Content-Type': 'application/json',
+              'Authorization': 'Bearer $token',
+            },
+            body: jsonEncode({
+              'fcmToken': fcmToken,
+            }),
+          )
+          .timeout(const Duration(seconds: 30));
+
+      if (kDebugMode) {
+        print('FCM token registered successfully');
+      }
+    } catch (e) {
+      if (kDebugMode) {
+        print('Error registering FCM token: $e');
+      }
+      // Don't throw the error - just log it, as this shouldn't block the app
     }
   }
 }

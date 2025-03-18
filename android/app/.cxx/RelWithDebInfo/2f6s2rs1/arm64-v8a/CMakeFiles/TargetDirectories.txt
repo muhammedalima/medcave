@@ -1,0 +1,2 @@
+C:/Users/ADITHYA/aliproject/medcave/android/app/.cxx/RelWithDebInfo/2f6s2rs1/arm64-v8a/CMakeFiles/edit_cache.dir
+C:/Users/ADITHYA/aliproject/medcave/android/app/.cxx/RelWithDebInfo/2f6s2rs1/arm64-v8a/CMakeFiles/rebuild_cache.dir

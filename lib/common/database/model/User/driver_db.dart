@@ -1,9 +1,15 @@
+// File: lib/common/services/driver_database.dart
+
 import 'package:cloud_firestore/cloud_firestore.dart';
 import 'package:firebase_auth/firebase_auth.dart';
 import 'package:flutter/foundation.dart';
+import 'package:shared_preferences/shared_preferences.dart';
 // Correct import for dart:math
 import 'dart:math' as math;
 
+// Constants for SharedPreferences keys
+const String KEY_DRIVER_ID = 'driver_id';
+const String KEY_IS_DRIVER_ACTIVE = 'is_driver_active';
 
 // Driver data model
 class DriverData {
@@ -33,6 +39,10 @@ class DriverDatabase {
   // Save driver data to Firestore
   static Future<bool> saveDriverData(DriverData driverData) async {
     try {
+      if (kDebugMode) {
+        print('Saving driver data...');
+      }
+      
       final user = _auth.currentUser;
       if (user != null) {
         // Get a reference to the drivers collection
@@ -50,7 +60,19 @@ class DriverDatabase {
           'updatedAt': FieldValue.serverTimestamp(),
         }, SetOptions(merge: true));
         
+        // Also update SharedPreferences to keep states in sync
+        final prefs = await SharedPreferences.getInstance();
+        await prefs.setBool(KEY_IS_DRIVER_ACTIVE, false);
+        
+        if (kDebugMode) {
+          print('Driver data saved successfully');
+        }
+        
         return true;
+      }
+      
+      if (kDebugMode) {
+        print('No user logged in, cannot save driver data');
       }
       return false;
     } catch (e) {
@@ -64,11 +86,26 @@ class DriverDatabase {
   // Get current driver data
   static Future<Map<String, dynamic>?> getCurrentDriverData() async {
     try {
+      if (kDebugMode) {
+        print('Getting current driver data...');
+      }
+      
       final user = _auth.currentUser;
       if (user != null) {
         final doc = await _firestore.collection('drivers').doc(user.uid).get();
         if (doc.exists) {
+          if (kDebugMode) {
+            print('Driver data retrieved successfully');
+          }
           return doc.data();
+        } else {
+          if (kDebugMode) {
+            print('Driver document does not exist');
+          }
+        }
+      } else {
+        if (kDebugMode) {
+          print('No user logged in, cannot get driver data');
         }
       }
       return null;
@@ -83,13 +120,35 @@ class DriverDatabase {
   // Update driver active status
   static Future<bool> updateDriverActiveStatus(bool isActive) async {
     try {
+      if (kDebugMode) {
+        print('Updating driver active status to: $isActive');
+      }
+      
       final user = _auth.currentUser;
       if (user != null) {
+        // 1. Update Firestore
         await _firestore.collection('drivers').doc(user.uid).update({
           'isDriverActive': isActive,
           'updatedAt': FieldValue.serverTimestamp(),
         });
+        
+        if (kDebugMode) {
+          print('Driver active status updated in Firestore: $isActive');
+        }
+        
+        // 2. Update SharedPreferences to keep them in sync
+        final prefs = await SharedPreferences.getInstance();
+        await prefs.setBool(KEY_IS_DRIVER_ACTIVE, isActive);
+        
+        if (kDebugMode) {
+          print('Updated SharedPreferences with is_driver_active = $isActive');
+        }
+        
         return true;
+      }
+      
+      if (kDebugMode) {
+        print('No user logged in, cannot update driver status');
       }
       return false;
     } catch (e) {
@@ -103,10 +162,26 @@ class DriverDatabase {
   // Delete driver data
   static Future<bool> deleteDriverData() async {
     try {
+      if (kDebugMode) {
+        print('Deleting driver data...');
+      }
+      
       final user = _auth.currentUser;
       if (user != null) {
         await _firestore.collection('drivers').doc(user.uid).delete();
+        
+        // Also clear SharedPreferences
+        final prefs = await SharedPreferences.getInstance();
+        await prefs.remove(KEY_IS_DRIVER_ACTIVE);
+        
+        if (kDebugMode) {
+          print('Driver data deleted successfully');
+        }
         return true;
+      }
+      
+      if (kDebugMode) {
+        print('No user logged in, cannot delete driver data');
       }
       return false;
     } catch (e) {
@@ -127,6 +202,11 @@ class DriverDatabase {
     double accuracy,
   ) async {
     try {
+      if (kDebugMode) {
+        print('Updating driver location for ID: $driverId');
+        print('Location: $latitude, $longitude');
+      }
+      
       // Update current location
       await _firestore.collection('drivers').doc(driverId).update({
         'location': {
@@ -141,6 +221,10 @@ class DriverDatabase {
         'updatedAt': FieldValue.serverTimestamp(),
       });
       
+      if (kDebugMode) {
+        print('Main location updated in Firestore');
+      }
+      
       // Optionally store in location history subcollection
       await _firestore
           .collection('drivers')
@@ -154,6 +238,10 @@ class DriverDatabase {
             'accuracy': accuracy,
             'timestamp': FieldValue.serverTimestamp(),
           });
+      
+      if (kDebugMode) {
+        print('Location history added successfully');
+      }
       
       return true;
     } catch (e) {
@@ -170,6 +258,10 @@ class DriverDatabase {
     {DateTime? startTime, DateTime? endTime}
   ) async {
     try {
+      if (kDebugMode) {
+        print('Getting driver location history for ID: $driverId');
+      }
+      
       QuerySnapshot query;
       
       if (startTime != null && endTime != null) {
@@ -191,7 +283,13 @@ class DriverDatabase {
           .get();
       }
       
-      return query.docs.map((doc) => doc.data() as Map<String, dynamic>).toList();
+      final results = query.docs.map((doc) => doc.data() as Map<String, dynamic>).toList();
+      
+      if (kDebugMode) {
+        print('Retrieved ${results.length} location history records');
+      }
+      
+      return results;
     } catch (e) {
       if (kDebugMode) {
         print('Error getting driver location history: $e');
@@ -207,12 +305,20 @@ class DriverDatabase {
     double radiusInKm
   ) async {
     try {
+      if (kDebugMode) {
+        print('Getting nearby drivers within $radiusInKm km of $latitude, $longitude');
+      }
+      
       // This is a simplified approach. For production, consider using Firestore's
       // GeoPoint or a specialized solution like GeoFirestore
       final drivers = await _firestore
           .collection('drivers')
           .where('isDriverActive', isEqualTo: true)
           .get();
+      
+      if (kDebugMode) {
+        print('Found ${drivers.docs.length} active drivers in total');
+      }
       
       // Filter drivers by distance (simplified approach)
       final nearbyDrivers = drivers.docs
@@ -236,6 +342,10 @@ class DriverDatabase {
           })
           .toList();
       
+      if (kDebugMode) {
+        print('Found ${nearbyDrivers.length} drivers within $radiusInKm km');
+      }
+      
       return nearbyDrivers;
     } catch (e) {
       if (kDebugMode) {
@@ -257,42 +367,72 @@ class DriverDatabase {
     final double dLon = _degreesToRadians(lon2 - lon1);
     
     final double a = 
-        (dLat / 2).sin() * (dLat / 2).sin() +
-        (dLon / 2).sin() * (dLon / 2).sin() * 
-        lat1.toRadians().cos() * 
-        lat2.toRadians().cos();
+        math.sin(dLat / 2) * math.sin(dLat / 2) +
+        math.sin(dLon / 2) * math.sin(dLon / 2) * 
+        math.cos(_degreesToRadians(lat1)) * 
+        math.cos(_degreesToRadians(lat2));
     
-    final double c = 2 * asin(sqrt(a));
+    final double c = 2 * math.asin(math.sqrt(a));
     return earthRadius * c;
   }
   
   static double _degreesToRadians(double degrees) {
-    return degrees * (pi / 180);
+    return degrees * (math.pi / 180);
+  }
+  
+  // Test direct location update - useful for debugging
+  static Future<bool> testDirectLocationUpdate() async {
+    try {
+      if (kDebugMode) {
+        print('Testing direct location update...');
+      }
+      
+      final user = _auth.currentUser;
+      if (user == null) {
+        if (kDebugMode) {
+          print('No user logged in, cannot test location update');
+        }
+        return false;
+      }
+      
+      // Use a fixed test location
+      const double testLat = 37.4220;
+      const double testLng = -122.0841;
+      
+      // Update in Firestore
+      await _firestore.collection('drivers').doc(user.uid).update({
+        'location': {
+          'latitude': testLat,
+          'longitude': testLng,
+          'heading': 0.0,
+          'speed': 0.0,
+          'accuracy': 0.0,
+          'timestamp': FieldValue.serverTimestamp(),
+          'testUpdate': true,
+        },
+        'lastLocationUpdate': FieldValue.serverTimestamp(),
+        'updatedAt': FieldValue.serverTimestamp(),
+      });
+      
+      if (kDebugMode) {
+        print('Direct test location update successful');
+      }
+      
+      return true;
+    } catch (e) {
+      if (kDebugMode) {
+        print('Error in test direct location update: $e');
+      }
+      return false;
+    }
   }
 }
 
-// Extensions to add math operations
+// Extensions to add math operations - no longer needed with direct math package usage
 extension MathOperations on double {
   double toRadians() {
-    return this * (pi / 180);
-  }
-  
-  double sin() {
-    return math.sin(this);
-  }
-  
-  double cos() {
-    return math.cos(this);
+    return this * (math.pi / 180);
   }
 }
-
-double asin(double value) {
-  return math.asin(value);
-}
-
-double sqrt(double value) {
-  return math.sqrt(value);
-}
-
 
 const double pi = math.pi;
