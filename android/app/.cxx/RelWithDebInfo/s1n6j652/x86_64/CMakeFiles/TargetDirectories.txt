@@ -1,0 +1,2 @@
+D:/aliproject/currecntly working/medcave/android/app/.cxx/RelWithDebInfo/s1n6j652/x86_64/CMakeFiles/edit_cache.dir
+D:/aliproject/currecntly working/medcave/android/app/.cxx/RelWithDebInfo/s1n6j652/x86_64/CMakeFiles/rebuild_cache.dir

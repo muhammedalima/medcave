@@ -1,5 +1,3 @@
-// File: lib/common/initialization/app_initializer.dart
-
 import 'package:firebase_auth/firebase_auth.dart';
 import 'package:firebase_core/firebase_core.dart';
 import 'package:firebase_messaging/firebase_messaging.dart';
@@ -375,7 +373,9 @@ class AppInitializer {
       // Get FCM token - but don't register it here, we'll do that in _initializeFCMTokenManagement
       final token = await messaging.getToken();
       if (kDebugMode && token != null) {
-        print('FCM Token: ${token.substring(0, 10)}...');
+        if (kDebugMode) {
+          print('FCM Token: ${token.substring(0, 10)}...');
+        }
       }
     } catch (e) {
       if (kDebugMode) {

@@ -18,7 +18,7 @@
     <!-- Schedule exact alarms for medicine notifications -->
     <uses-permission android:name="android.permission.SCHEDULE_EXACT_ALARM"/>
  
-    <application android:label="MedCave" android:name="${applicationName}" android:icon="@mipmap/ic_launcher" android:usesCleartextTraffic="true">
+    <application android:label="MedCave" android:name="${applicationName}" android:icon="@mipmap/ic_launcher" android:usesCleartextTraffic="true" android:enableOnBackInvokedCallback="true">
         
         <!-- Add this for multidex support -->
         <meta-data android:name="android.support.multidex.MultiDexApplication" android:value="true"/>

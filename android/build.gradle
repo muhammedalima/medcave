@@ -1,5 +1,5 @@
 buildscript {
-    ext.kotlin_version = '1.9.22' // Using a stable version
+    ext.kotlin_version = '1.9.24' // Using a stable version
     repositories {
         google()
         mavenCentral()

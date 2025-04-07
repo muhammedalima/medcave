@@ -2,7 +2,7 @@ import 'package:flutter/material.dart';
 import 'package:google_maps_flutter/google_maps_flutter.dart';
 import 'package:geolocator/geolocator.dart';
 import 'package:geocoding/geocoding.dart';
-import 'package:medcave/Users/Mobilescreens/commonWidget/customnavbar.dart';
+import 'package:medcave/main/commonWidget/customnavbar.dart';
 
 class LocationService {
   static Future<LocationPermission> checkAndRequestPermission() async {

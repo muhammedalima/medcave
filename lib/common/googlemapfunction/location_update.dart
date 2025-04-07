@@ -394,8 +394,10 @@ class DriverLocationService {
     // Create a new timer that won't be garbage collected
     _locationTimer = Timer.periodic(const Duration(seconds: 10), (timer) {
       if (kDebugMode && timer.tick % 5 == 0) {
-        print(
+        if (kDebugMode) {
+          print(
             'Location timer tick: ${timer.tick} (isActive=${timer.isActive})');
+        }
       }
 
       // Always call updateLocationNow directly
@@ -424,7 +426,9 @@ class DriverLocationService {
           KEY_TIMER_LAST_UPDATE, DateTime.now().millisecondsSinceEpoch);
 
       if (kDebugMode && tick % 10 == 0) {
-        print('Timer status updated: active=$isActive, tick=$tick');
+        if (kDebugMode) {
+          print('Timer status updated: active=$isActive, tick=$tick');
+        }
       }
     } catch (e) {
       if (kDebugMode) {
@@ -684,8 +688,10 @@ class DriverLocationService {
 
           // Periodically log the status check (not on every check to avoid log spam)
           if (kDebugMode && DateTime.now().second % 30 == 0) {
-            print(
+            if (kDebugMode) {
+              print(
                 'Status check: isDriverActive in Firestore: $newIsActive, current state: $_isDriverActive');
+            }
           }
 
           // Only take action if status has changed

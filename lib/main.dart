@@ -7,9 +7,9 @@ import 'package:flutter/material.dart';
 import 'package:medcave/Initialization_files/error_boundary.dart';
 import 'package:medcave/Initialization_files/firebase_message_handler.dart';
 import 'package:medcave/Initialization_files/permission_handler_widget.dart';
+import 'package:medcave/main/Starting_Screen/auth/authwrapper.dart';
 import 'package:medcave/common/services/notification_service.dart';
 import 'package:medcave/config/theme/theme.dart';
-import 'package:medcave/Users/UserType/user_wrapper.dart';
 
 // Initialize background message handler
 @pragma('vm:entry-point')
@@ -55,10 +55,9 @@ class MyApp extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     return MaterialApp(
-      navigatorKey: NotificationService.navigatorKey,
-      title: 'MedCave',
-      theme: AppTheme.theme,
-      home: const ErrorBoundary(child: Userwrapper()),
-    );
+        navigatorKey: NotificationService.navigatorKey,
+        title: 'MedCave',
+        theme: AppTheme.theme,
+        home: const ErrorBoundary(child: AuthWrapper()));
   }
 }

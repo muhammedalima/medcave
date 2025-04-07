@@ -24,17 +24,23 @@ class ReminderModel {
   });
 
   // Create a model from Firestore document
-  factory ReminderModel.fromFirestore(DocumentSnapshot<Map<String, dynamic>> doc) {
-    final data = doc.data() ?? {};
-    final reminderData = data['reminder'] ?? {};
-    
+  factory ReminderModel.fromFirestore(DocumentSnapshot doc) {
+    final data = doc.data() as Map<String, dynamic>? ?? {};
+    final reminderData = data['reminder'] as Map<String, dynamic>? ?? {};
+
     return ReminderModel(
-      morningBeforeFood: _timeFromMap(reminderData['morningBeforeFood']),
-      morningAfterFood: _timeFromMap(reminderData['morningAfterFood']),
-      noonBeforeFood: _timeFromMap(reminderData['noonBeforeFood']),
-      noonAfterFood: _timeFromMap(reminderData['noonAfterFood']),
-      nightBeforeFood: _timeFromMap(reminderData['nightBeforeFood']),
-      nightAfterFood: _timeFromMap(reminderData['nightAfterFood']),
+      morningBeforeFood: _timeFromMap(
+          reminderData['morningBeforeFood'] as Map<String, dynamic>?),
+      morningAfterFood: _timeFromMap(
+          reminderData['morningAfterFood'] as Map<String, dynamic>?),
+      noonBeforeFood:
+          _timeFromMap(reminderData['noonBeforeFood'] as Map<String, dynamic>?),
+      noonAfterFood:
+          _timeFromMap(reminderData['noonAfterFood'] as Map<String, dynamic>?),
+      nightBeforeFood: _timeFromMap(
+          reminderData['nightBeforeFood'] as Map<String, dynamic>?),
+      nightAfterFood:
+          _timeFromMap(reminderData['nightAfterFood'] as Map<String, dynamic>?),
     );
   }
 
@@ -50,10 +56,29 @@ class ReminderModel {
   // Convert Map from Firestore to TimeOfDay
   static TimeOfDay? _timeFromMap(Map<String, dynamic>? map) {
     if (map == null) return null;
-    return TimeOfDay(
-      hour: map['hour'] ?? 0,
-      minute: map['minute'] ?? 0,
-    );
+
+    // Get hour and minute with more robust parsing
+    final hour = map['hour'] is int
+        ? map['hour'] as int
+        : map['hour'] is String
+            ? int.tryParse(map['hour'] as String) ?? 0
+            : 0;
+
+    final minute = map['minute'] is int
+        ? map['minute'] as int
+        : map['minute'] is String
+            ? int.tryParse(map['minute'] as String) ?? 0
+            : 0;
+
+    // Validate that we have valid time values
+    if (hour < 0 || hour > 23 || minute < 0 || minute > 59) {
+      if (kDebugMode) {
+        print('Invalid time values: hour=$hour, minute=$minute');
+      }
+      return null;
+    }
+
+    return TimeOfDay(hour: hour, minute: minute);
   }
 
   // Convert model to Map for Firestore
@@ -75,18 +100,20 @@ class ReminderModel {
     required TimeOfDay time,
   }) {
     return ReminderModel(
-      morningBeforeFood: type == 'morning' && mealTime == 'beforeFood' 
-          ? time : morningBeforeFood,
-      morningAfterFood: type == 'morning' && mealTime == 'afterFood' 
-          ? time : morningAfterFood,
-      noonBeforeFood: type == 'noon' && mealTime == 'beforeFood' 
-          ? time : noonBeforeFood,
-      noonAfterFood: type == 'noon' && mealTime == 'afterFood' 
-          ? time : noonAfterFood,
-      nightBeforeFood: type == 'night' && mealTime == 'beforeFood' 
-          ? time : nightBeforeFood,
-      nightAfterFood: type == 'night' && mealTime == 'afterFood' 
-          ? time : nightAfterFood,
+      morningBeforeFood: type == 'morning' && mealTime == 'beforeFood'
+          ? time
+          : morningBeforeFood,
+      morningAfterFood: type == 'morning' && mealTime == 'afterFood'
+          ? time
+          : morningAfterFood,
+      noonBeforeFood:
+          type == 'noon' && mealTime == 'beforeFood' ? time : noonBeforeFood,
+      noonAfterFood:
+          type == 'noon' && mealTime == 'afterFood' ? time : noonAfterFood,
+      nightBeforeFood:
+          type == 'night' && mealTime == 'beforeFood' ? time : nightBeforeFood,
+      nightAfterFood:
+          type == 'night' && mealTime == 'afterFood' ? time : nightAfterFood,
     );
   }
 }
@@ -94,24 +121,23 @@ class ReminderModel {
 // Helper class to interact with Firestore for reminders
 class ReminderDatabase {
   final FirebaseFirestore _firestore = FirebaseFirestore.instance;
-  
+
   // Debounce timer
   Timer? _saveDebounceTimer;
-  
+
   // Get reference to user's document
   DocumentReference getUserDocument(String userId) {
     return _firestore.collection('userdata').doc(userId);
   }
-  
+
   // Fetch reminder data for a user
   Future<ReminderModel> fetchReminderData(String userId) async {
     try {
       final docSnapshot = await getUserDocument(userId).get();
-      
+
       if (docSnapshot.exists) {
         return ReminderModel.fromFirestore(
-          docSnapshot as DocumentSnapshot<Map<String, dynamic>>
-        );
+            docSnapshot as DocumentSnapshot<Map<String, dynamic>>);
       } else {
         // Return empty model if document doesn't exist
         return ReminderModel();
@@ -123,12 +149,13 @@ class ReminderDatabase {
       return ReminderModel();
     }
   }
-  
+
   // Save reminder settings to Firestore with debouncing
-  Future<void> saveReminderData(String userId, ReminderModel reminderData) async {
+  Future<void> saveReminderData(
+      String userId, ReminderModel reminderData) async {
     // Cancel any existing debounce timer
     _saveDebounceTimer?.cancel();
-    
+
     // Create a new timer
     _saveDebounceTimer = Timer(const Duration(milliseconds: 500), () async {
       try {
@@ -136,11 +163,11 @@ class ReminderDatabase {
         await getUserDocument(userId).set({
           'reminder': reminderData.toMap(),
         }, SetOptions(merge: true));
-        
+
         if (kDebugMode) {
           print('Reminder data saved for user $userId');
         }
-        
+
         // Refresh notifications after changes are saved
         // This is a safe place to refresh as it's debounced
         _triggerNotificationRefresh();
@@ -151,28 +178,24 @@ class ReminderDatabase {
       }
     });
   }
-  
-  // Update a specific reminder time with debouncing 
+
+  // Update a specific reminder time with debouncing
   Future<void> updateReminderTime(
-    String userId, 
-    String type,
-    String mealTime,
-    TimeOfDay time
-  ) async {
+      String userId, String type, String mealTime, TimeOfDay time) async {
     try {
       // First fetch the current data
       final currentData = await fetchReminderData(userId);
-      
+
       // Create updated data
       final updatedData = currentData.copyWith(
         type: type,
         mealTime: mealTime,
         time: time,
       );
-      
+
       // Save with the built-in debouncer
       await saveReminderData(userId, updatedData);
-      
+
       if (kDebugMode) {
         print('Reminder time update queued for $type $mealTime');
       }
@@ -183,7 +206,7 @@ class ReminderDatabase {
       throw e;
     }
   }
-  
+
   // Trigger notification refresh safely through manager
   void _triggerNotificationRefresh() {
     // Slight delay to prevent potential collisions with ongoing operations
@@ -191,7 +214,7 @@ class ReminderDatabase {
       MedicineNotificationManager().refreshNotifications();
     });
   }
-  
+
   // Clean up method to cancel subscriptions and timers
   void dispose() {
     _saveDebounceTimer?.cancel();

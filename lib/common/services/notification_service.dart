@@ -9,8 +9,8 @@ import 'package:firebase_auth/firebase_auth.dart';
 import 'package:cloud_firestore/cloud_firestore.dart';
 import 'package:geolocator/geolocator.dart';
 import 'package:medcave/Initialization_files/notification_channels.dart';
-import 'package:medcave/Users/Mobilescreens/features/ambulance_tracking/presentation/pages/driver/details_ambulancedriver.dart';
-import 'package:medcave/Users/Mobilescreens/features/ambulance_tracking/presentation/pages/driver/driverwrapper.dart';
+import 'package:medcave/main/features/ambulance_tracking/presentation/pages/driver/details_ambulancedriver.dart';
+import 'package:medcave/main/features/ambulance_tracking/presentation/pages/driver/driverwrapper.dart';
 import 'dart:async';
 
 import 'package:medcave/common/services/api_service.dart';
